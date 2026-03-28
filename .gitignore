@@ -6,7 +6,7 @@
 *.app
 
 # Test results (generated output)
-# results/
+results/
 
 # Debug logs
 *.log
