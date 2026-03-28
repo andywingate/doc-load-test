@@ -144,10 +144,28 @@
             color: #075985;
             line-height: 1.6;
         }
+        .back-button {
+            display: inline-block;
+            background: white;
+            color: #059669;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            background: #f0fdf4;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <a href="index.html" class="back-button">← Back to Reports</a>
         <div class="header">
             <h1>⚡ BC API Deep Insert Test Report</h1>
             <div class="subtitle">

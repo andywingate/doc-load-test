@@ -82,6 +82,14 @@
             text-align: left;
             font-weight: 600;
         }
+        .comparison-table th.so-col {
+            background: #3498db;
+            color: white;
+        }
+        .comparison-table th.po-col {
+            background: #e67e22;
+            color: white;
+        }
         .comparison-table td {
             padding: 1rem;
             border-bottom: 1px solid #ecf0f1;
@@ -124,10 +132,28 @@
         .highlight strong {
             color: #856404;
         }
+        .back-button {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            background: #f8f9fa;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <a href="index.html" class="back-button">← Back to Reports</a>
         <h1>🚀 Deep Insert Endurance Test <span class="badge">✓ PASSED</span></h1>
         <div class="subtitle">
             Test Date: March 28, 2026 23:43:17 | Duration: 2 minutes | Method: Deep Insert (header + lines in 1 API call)
