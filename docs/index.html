@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BC API Load Test Reports</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .header .subtitle {
+            font-size: 1.3em;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 50px 40px;
+        }
+        .intro {
+            font-size: 1.1em;
+            line-height: 1.8;
+            color: #555;
+            margin-bottom: 40px;
+            text-align: center;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .reports-section {
+            margin-top: 40px;
+        }
+        .section-title {
+            font-size: 2em;
+            color: #1e3c72;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+        .report-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        .report-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+        .report-card .badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #10b981;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.75em;
+            font-weight: bold;
+        }
+        .report-card h3 {
+            font-size: 1.4em;
+            color: #1e3c72;
+            margin-bottom: 15px;
+        }
+        .report-card .date {
+            color: #888;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+        .report-card .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat .label {
+            font-size: 0.8em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat .value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+            margin-top: 5px;
+        }
+        .report-card .description {
+            color: #666;
+            line-height: 1.6;
+            margin-top: 15px;
+        }
+        .report-card .view-button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 6px;
+            text-decoration: none;
+            margin-top: 20px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .report-card .view-button:hover {
+            background: #5568d3;
+        }
+        .info-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 8px;
+            margin-top: 40px;
+        }
+        .info-section h2 {
+            font-size: 1.5em;
+            color: #1e3c72;
+            margin-bottom: 15px;
+        }
+        .info-section p {
+            color: #555;
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+        .info-section ul {
+            margin-left: 20px;
+            color: #555;
+            line-height: 1.8;
+        }
+        .footer {
+            background: #1e3c72;
+            color: white;
+            padding: 25px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .footer a {
+            color: #a5b4fc;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 BC API Load Test Reports</h1>
+            <div class="subtitle">Business Central Cloud SaaS Performance Testing</div>
+        </div>
+
+        <div class="content">
+            <div class="intro">
+                Interactive performance reports for Business Central API load testing. 
+                This extension stress-tests the BC Cloud API's ability to handle bulk document creation 
+                (Sales Orders and Purchase Orders) with comprehensive metrics and visualizations.
+            </div>
+
+            <div class="reports-section">
+                <h2 class="section-title">📊 Test Reports</h2>
+                
+                <div class="report-grid">
+                    <div class="report-card" onclick="window.location.href='endurance-report-20260328-091741.html'">
+                        <span class="badge">LATEST</span>
+                        <h3>Endurance Test - March 28, 2026</h3>
+                        <div class="date">📅 2026-03-28 09:17 - 11:17 (120 minutes)</div>
+                        
+                        <div class="stats">
+                            <div class="stat">
+                                <div class="label">Documents</div>
+                                <div class="value">11,019</div>
+                            </div>
+                            <div class="stat">
+                                <div class="label">Success Rate</div>
+                                <div class="value">100%</div>
+                            </div>
+                            <div class="stat">
+                                <div class="label">Total Lines</div>
+                                <div class="value">33,057</div>
+                            </div>
+                            <div class="stat">
+                                <div class="label">Avg Rate</div>
+                                <div class="value">1.53/s</div>
+                            </div>
+                        </div>
+                        
+                        <div class="description">
+                            2-hour continuous endurance test with 6 complete cycles. 
+                            Created 4,940 Sales Orders and 6,079 Purchase Orders with zero errors. 
+                            Median response time: 654ms.
+                        </div>
+                        
+                        <a href="endurance-report-20260328-091741.html" class="view-button">View Full Report →</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h2>📖 About This Extension</h2>
+                <p><strong>doc-load-test</strong> v1.0.0.5 - Stress testing framework for Business Central Cloud APIs</p>
+                <p><strong>Test Modes Available:</strong></p>
+                <ul>
+                    <li><strong>Validate:</strong> Quick smoke test (1 SO + 1 PO)</li>
+                    <li><strong>Full:</strong> Comprehensive load test with configurable document counts</li>
+                    <li><strong>Read:</strong> Read-only performance testing</li>
+                    <li><strong>Concurrent:</strong> Multi-threaded parallel creation</li>
+                    <li><strong>Race:</strong> Time-boxed maximum throughput test</li>
+                    <li><strong>Endurance:</strong> Long-running reliability test (hours)</li>
+                    <li><strong>DeepInsert:</strong> Single-call header + lines creation (NEW in v1.0.0.5)</li>
+                </ul>
+                <p style="margin-top: 15px;">
+                    <strong>API Endpoints:</strong> Custom v1.0 endpoints under /api/defaultpublisher/docloadtest/v1.0
+                </p>
+                <p>
+                    <strong>Source:</strong> <a href="https://github.com/andywingate/doc-load-test">github.com/andywingate/doc-load-test</a>
+                </p>
+            </div>
+        </div>
+
+        <div class="footer">
+            Business Central API Load Testing Framework | 
+            <a href="https://github.com/andywingate/doc-load-test">View on GitHub</a>
+        </div>
+    </div>
+</body>
+</html>
