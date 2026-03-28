@@ -1,0 +1,3 @@
+Timestamp,Cycle,Phase,Docs,Errors,Rate_Per_Sec,Phase_Secs,Cumulative_SO,Cumulative_PO,Cumulative_SO_Errors,Cumulative_PO_Errors,Cumulative_Total_Docs,Cumulative_Total_Lines,Elapsed_Min,BatchId
+2026-03-28 23:33:28,1,SO,151,0,2.52,60,151,0,0,0,151,453,1,LT-20260328-233227
+2026-03-28 23:34:28,1,PO,254,0,4.23,60,151,254,0,0,405,1215,2,LT-20260328-233227

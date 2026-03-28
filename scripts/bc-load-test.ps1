@@ -42,10 +42,11 @@ param(
     [int]$ConcurrentJobs = 3,
     [int]$RaceMinutes = 5,
     [int]$CycleMinutes = 10,
-    [int]$EnduranceMaxHours = 2,
+    [int]$EnduranceMaxMinutes = 120,
     [int]$RetryCount = 3,
     [int]$RetryDelaySeconds = 10,
-    [switch]$DebugLog
+    [switch]$DebugLog,
+    [switch]$UseDeepInsert
 )
 
 $ErrorActionPreference = "Stop"
@@ -130,9 +131,10 @@ function Invoke-BCApi {
         try {
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             $params = @{
-                Uri     = $Url
-                Method  = $Method
-                Headers = $headers
+                Uri            = $Url
+                Method         = $Method
+                Headers        = $headers
+                TimeoutSec     = 15
             }
             if ($jsonBody) {
                 $params.Body = $jsonBody
@@ -141,7 +143,7 @@ function Invoke-BCApi {
             $response = Invoke-RestMethod @params
             $sw.Stop()
             Write-Debug-Log "  -> 200 OK (${($sw.ElapsedMilliseconds)}ms)"
-            return @{ Success = $true; Data = $response; StatusCode = 200 }
+            return @{ Success = $true; Data = $response; StatusCode = 200; Retries = $attempt }
         }
         catch {
             $sw.Stop()
@@ -165,11 +167,11 @@ function Invoke-BCApi {
             # 400 Bad Request = code/data bug, not transient — don't retry
             if ($statusCode -eq 400) {
                 Write-Host "  Bad Request (400): $errorBody" -ForegroundColor Red
-                return @{ Success = $false; StatusCode = $statusCode; Error = $errorBody }
+                return @{ Success = $false; StatusCode = $statusCode; Error = $errorBody; Retries = $attempt }
             }
 
             if ($attempt -eq $MaxRetries) {
-                return @{ Success = $false; StatusCode = $statusCode; Error = $errorBody }
+                return @{ Success = $false; StatusCode = $statusCode; Error = $errorBody; Retries = $attempt }
             }
 
             Write-Host "  Request failed ($statusCode). Retrying in 2s... (attempt $($attempt+1)/$MaxRetries)" -ForegroundColor DarkYellow
@@ -334,12 +336,12 @@ function New-TestSalesOrderDeepInsert {
     $result = Invoke-BCApi -Method Post -Url "$customApi/salesOrdersDI" -Body $body
     if (-not $result.Success) {
         Write-Debug-Log "Deep insert SO FAILED: $($result.StatusCode) - $($result.Error)"
-        return @{ Success = $false; Error = $result.Error; LineErrors = 0 }
+        return @{ Success = $false; Error = $result.Error; LineErrors = 0; Retries = $result.Retries }
     }
 
     $soNo = $result.Data.number
     Write-Debug-Log "Deep insert SO $soNo complete with $Lines lines"
-    return @{ Success = $true; OrderNo = $soNo; LineErrors = 0 }
+    return @{ Success = $true; OrderNo = $soNo; LineErrors = 0; Retries = $result.Retries }
 }
 
 function New-TestPurchaseOrderDeepInsert {
@@ -369,12 +371,12 @@ function New-TestPurchaseOrderDeepInsert {
     $result = Invoke-BCApi -Method Post -Url "$customApi/purchaseOrdersDI" -Body $body
     if (-not $result.Success) {
         Write-Debug-Log "Deep insert PO FAILED: $($result.StatusCode) - $($result.Error)"
-        return @{ Success = $false; Error = $result.Error; LineErrors = 0 }
+        return @{ Success = $false; Error = $result.Error; LineErrors = 0; Retries = $result.Retries }
     }
 
     $poNo = $result.Data.number
     Write-Debug-Log "Deep insert PO $poNo complete with $Lines lines"
-    return @{ Success = $true; OrderNo = $poNo; LineErrors = 0 }
+    return @{ Success = $true; OrderNo = $poNo; LineErrors = 0; Retries = $result.Retries }
 }
 
 # ─────────────────────────── Discover Test Data ───────────────────────────
@@ -760,11 +762,13 @@ function Refresh-Token {
 }
 
 function Start-EnduranceTest {
+    $insertMethod = if ($UseDeepInsert) { "DEEP INSERT (header + lines in 1 call)" } else { "TRADITIONAL (separate header + line calls)" }
     Write-Host "" 
     Write-Host "═══════════════════════════════════════════" -ForegroundColor Magenta
     Write-Host "  ENDURANCE TEST" -ForegroundColor Magenta
+    Write-Host "  Insert Method: $insertMethod" -ForegroundColor $(if ($UseDeepInsert) { 'Green' } else { 'Cyan' })
     Write-Host "  Cycle: ${CycleMinutes}min SO + ${CycleMinutes}min PO" -ForegroundColor Magenta
-    Write-Host "  Max duration: ${EnduranceMaxHours}h" -ForegroundColor Magenta
+    Write-Host "  Max duration: ${EnduranceMaxMinutes}min" -ForegroundColor Magenta
     Write-Host "  Lines/doc: $LinesPerDoc | Batch: $BatchId" -ForegroundColor Magenta
     Write-Host "═══════════════════════════════════════════" -ForegroundColor Magenta
     Write-Host ""
@@ -787,7 +791,7 @@ function Start-EnduranceTest {
     Write-Host ""
 
     $enduranceStart = Get-Date
-    $enduranceDeadline = $enduranceStart.AddHours($EnduranceMaxHours)
+    $enduranceDeadline = $enduranceStart.AddMinutes($EnduranceMaxMinutes)
     $script:tokenAcquired = $enduranceStart
     $cycleNum = 0
     $timeLimit = [TimeSpan]::FromMinutes($CycleMinutes)
@@ -817,7 +821,11 @@ function Start-EnduranceTest {
 
         while ((Get-Date) -lt $phaseDeadline) {
             $docStart = Get-Date
-            $r = New-TestSalesOrder -CustNo $custNo -ItmNo $itmNo -Lines $LinesPerDoc
+            if ($UseDeepInsert) {
+                $r = New-TestSalesOrderDeepInsert -CustNo $custNo -ItmNo $itmNo -Lines $LinesPerDoc
+            } else {
+                $r = New-TestSalesOrder -CustNo $custNo -ItmNo $itmNo -Lines $LinesPerDoc
+            }
             $docMs = [math]::Round(((Get-Date) - $docStart).TotalMilliseconds)
             $docElapsed = [math]::Round(((Get-Date) - $enduranceStart).TotalSeconds, 1)
             if ($r.Success) {
@@ -863,7 +871,11 @@ function Start-EnduranceTest {
 
         while ((Get-Date) -lt $phaseDeadline) {
             $docStart = Get-Date
-            $r = New-TestPurchaseOrder -VndNo $vndNo -ItmNo $itmNo -Lines $LinesPerDoc
+            if ($UseDeepInsert) {
+                $r = New-TestPurchaseOrderDeepInsert -VndNo $vndNo -ItmNo $itmNo -Lines $LinesPerDoc
+            } else {
+                $r = New-TestPurchaseOrder -VndNo $vndNo -ItmNo $itmNo -Lines $LinesPerDoc
+            }
             $docMs = [math]::Round(((Get-Date) - $docStart).TotalMilliseconds)
             $docElapsed = [math]::Round(((Get-Date) - $enduranceStart).TotalSeconds, 1)
             if ($r.Success) {
