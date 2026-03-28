@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BC API Deep Insert Test Report - March 28, 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .highlight-box {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: white;
+            padding: 20px;
+            margin: 20px 40px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #10b981;
+            transition: transform 0.2s;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+        .metric-card .label {
+            font-size: 0.9em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+        .metric-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #059669;
+        }
+        .metric-card .sub {
+            font-size: 0.9em;
+            color: #888;
+            margin-top: 8px;
+        }
+        .metric-card.success {
+            border-left-color: #10b981;
+        }
+        .metric-card.warning {
+            border-left-color: #f59e0b;
+        }
+        .chart-section {
+            padding: 40px;
+        }
+        .chart-container {
+            margin-bottom: 50px;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .chart-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #059669;
+            border-bottom: 3px solid #10b981;
+            padding-bottom: 10px;
+        }
+        canvas {
+            max-height: 400px;
+        }
+        .footer {
+            background: #059669;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #10b981;
+            color: white;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .info-box {
+            background: #e0f2fe;
+            border-left: 4px solid #0284c7;
+            padding: 20px;
+            margin: 20px 40px;
+            border-radius: 8px;
+        }
+        .info-box h3 {
+            color: #0369a1;
+            margin-bottom: 10px;
+        }
+        .info-box p {
+            color: #075985;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ BC API Deep Insert Test Report</h1>
+            <div class="subtitle">
+                March 28, 2026 | 23:12 - 23:14 (2 Minutes) | Batch ID: LT-20260328-231201
+                <span class="badge">100% SUCCESS</span>
+            </div>
+        </div>
+
+        <div class="highlight-box">
+            🚀 75% API Call Reduction: 406 calls vs 1,624 with separate header/line creation
+        </div>
+
+        <div class="info-box">
+            <h3>🔍 What is Deep Insert?</h3>
+            <p>
+                Deep Insert allows creating a complete document (header + all lines) in a single API call.
+                Traditional approach requires 1 call for the header + N calls for lines = (N+1) total calls.
+                Deep Insert requires just 1 call regardless of line count, dramatically reducing network overhead and improving performance.
+            </p>
+        </div>
+
+        <div class="summary">
+            <div class="metric-card success">
+                <div class="label">Total Documents</div>
+                <div class="value">406</div>
+                <div class="sub">153 SO + 253 PO</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Total Lines</div>
+                <div class="value">1,218</div>
+                <div class="sub">3 lines per document</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Test Duration</div>
+                <div class="value">2</div>
+                <div class="sub">minutes (1 min per type)</div>
+            </div>
+            <div class="metric-card success">
+                <div class="label">Success Rate</div>
+                <div class="value">100%</div>
+                <div class="sub">0 errors detected</div>
+            </div>
+            <div class="metric-card warning">
+                <div class="label">SO Throughput</div>
+                <div class="value">2.55</div>
+                <div class="sub">docs/sec (153/min)</div>
+            </div>
+            <div class="metric-card success">
+                <div class="label">PO Throughput</div>
+                <div class="value">4.20</div>
+                <div class="sub">docs/sec (252/min)</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">SO Avg Response</div>
+                <div class="value">388ms</div>
+                <div class="sub">Median: 392ms</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">PO Avg Response</div>
+                <div class="value">232ms</div>
+                <div class="sub">Median: 223ms</div>
+            </div>
+        </div>
+
+        <div class="chart-section">
+            <div class="chart-container">
+                <div class="chart-title">📊 Sales Orders vs Purchase Orders Performance</div>
+                <canvas id="comparisonChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">⚡ Throughput Comparison</div>
+                <canvas id="throughputChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">⏱️ Response Time Distribution</div>
+                <canvas id="responseTimeChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">📈 API Call Efficiency vs Traditional Approach</div>
+                <canvas id="efficiencyChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">📉 Response Time Percentiles</div>
+                <canvas id="percentilesChart"></canvas>
+            </div>
+        </div>
+
+        <div class="footer">
+            Generated from: deepinsert-detail-20260328-231201.csv<br>
+            Business Central API Load Test | doc-load-test Extension v1.0.0.5 | Deep Insert API
+        </div>
+    </div>
+
+    <script>
+        Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+        Chart.defaults.color = '#666';
+
+        // Test data
+        const soCount = 153;
+        const poCount = 253;
+        const totalDocs = 406;
+        const linesPerDoc = 3;
+        const totalLines = 1218;
+        const soRate = 2.55;
+        const poRate = 4.20;
+        const soAvg = 388;
+        const poAvg = 232;
+        const soP50 = 392;
+        const poP50 = 223;
+        const soP95 = 494;
+        const poP95 = 298;
+
+        // SO vs PO comparison
+        const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+        new Chart(comparisonCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Documents Created', 'Lines Created', 'Docs per Second', 'Avg Response (ms)'],
+                datasets: [
+                    {
+                        label: 'Sales Orders',
+                        data: [soCount, soCount * 3, soRate, soAvg],
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Purchase Orders',
+                        data: [poCount, poCount * 3, poRate, poAvg],
+                        backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {position: 'top'}
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Throughput chart
+        const throughputCtx = document.getElementById('throughputChart').getContext('2d');
+        new Chart(throughputCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [
+                    `Sales Orders: ${soCount} docs (${soRate}/sec)`,
+                    `Purchase Orders: ${poCount} docs (${poRate}/sec)`
+                ],
+                datasets: [{
+                    data: [soCount, poCount],
+                    backgroundColor: [
+                        'rgba(102, 126, 234, 0.8)',
+                        'rgba(16, 185, 129, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(102, 126, 234, 1)',
+                        'rgba(16, 185, 129, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            font: {size: 13}
+                        }
+                    }
+                }
+            }
+        });
+
+        // Response time distribution
+        const responseTimeCtx = document.getElementById('responseTimeChart').getContext('2d');
+        new Chart(responseTimeCtx, {
+            type: 'bar',
+            data: {
+                labels: ['0-200ms', '200-300ms', '300-400ms', '400-500ms', '500-600ms'],
+                datasets: [
+                    {
+                        label: 'Sales Orders',
+                        data: [12, 35, 58, 42, 6],
+                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2
+                    },
+                    {
+                        label: 'Purchase Orders',
+                        data: [125, 98, 25, 5, 0],
+                        backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {display: true, position: 'top'}
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {display: true, text: 'Number of Requests'}
+                    },
+                    x: {
+                        title: {display: true, text: 'Response Time Range'}
+                    }
+                }
+            }
+        });
+
+        // API call efficiency
+        const traditionalCalls = totalDocs * (1 + linesPerDoc); // 1 header + N lines per doc
+        const deepInsertCalls = totalDocs; // 1 call per doc
+        const efficiencySavings = traditionalCalls - deepInsertCalls;
+
+        const efficiencyCtx = document.getElementById('efficiencyChart').getContext('2d');
+        new Chart(efficiencyCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Traditional Approach', 'Deep Insert', 'Savings'],
+                datasets: [{
+                    label: 'API Calls Required',
+                    data: [traditionalCalls, deepInsertCalls, efficiencySavings],
+                    backgroundColor: [
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(245, 158, 11, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(239, 68, 68, 1)',
+                        'rgba(16, 185, 129, 1)',
+                        'rgba(245, 158, 11, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {display: false},
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: function(context) {
+                                if (context.dataIndex === 0) return '(1 header + 3 lines) × 406 docs';
+                                if (context.dataIndex === 1) return '1 call × 406 docs';
+                                if (context.dataIndex === 2) return `${Math.round((efficiencySavings/traditionalCalls)*100)}% reduction`;
+                                return '';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {display: true, text: 'Number of API Calls'}
+                    }
+                }
+            }
+        });
+
+        // Percentiles chart
+        const percentilesCtx = document.getElementById('percentilesChart').getContext('2d');
+        new Chart(percentilesCtx, {
+            type: 'line',
+            data: {
+                labels: ['p50 (Median)', 'p95'],
+                datasets: [
+                    {
+                        label: 'Sales Orders (ms)',
+                        data: [soP50, soP95],
+                        borderColor: 'rgb(102, 126, 234)',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: 'rgb(102, 126, 234)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    },
+                    {
+                        label: 'Purchase Orders (ms)',
+                        data: [poP50, poP95],
+                        borderColor: 'rgb(16, 185, 129)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: 'rgb(16, 185, 129)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {display: true, position: 'top'}
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {display: true, text: 'Response Time (milliseconds)'}
+                    },
+                    x: {
+                        title: {display: true, text: 'Percentile'}
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
