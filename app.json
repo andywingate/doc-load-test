@@ -1,0 +1,32 @@
+{
+  "id": "36444a0c-af32-4d45-8179-eb96cb8c55f3",
+  "name": "doc-load-test",
+  "publisher": "Wingate365",
+  "version": "1.0.0.5",
+  "brief": "Document Load Stress Test",
+  "description": "Stress tests for BC API capability - bulk creation and loading of Sales Orders and Purchase Orders.",
+  "privacyStatement": "",
+  "EULA": "",
+  "help": "",
+  "url": "",
+  "logo": "",
+  "dependencies": [],
+  "screenshots": [],
+  "platform": "1.0.0.0",
+  "application": "27.0.0.0",
+  "idRanges": [
+    {
+      "from": 50100,
+      "to": 50149
+    }
+  ],
+  "resourceExposurePolicy": {
+    "allowDebugging": true,
+    "allowDownloadingSource": true,
+    "includeSourceInSymbolFile": true
+  },
+  "runtime": "16.0",
+  "features": [
+    "NoImplicitWith"
+  ]
+}

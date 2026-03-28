@@ -1,0 +1,27 @@
+# AL build artifacts
+.alpackages/
+.altestrunner/
+.snapshots/
+.vscode/.alcache/
+*.app
+
+# Test results (generated output)
+results/
+
+# Debug logs
+*.log
+debug-*.txt
+
+# Environment config (may contain secrets)
+.env
+
+# VS Code user-specific
+.vscode/rad.json
+
+# PowerShell module cache
+PSModulePath/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
