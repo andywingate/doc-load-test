@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Failed Test - 10:12 - March 29, 2026</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem; color: #333;
+        }
+        .container {
+            max-width: 1400px; margin: 0 auto; background: white;
+            border-radius: 16px; padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .back-button {
+            display: inline-block; margin-bottom: 1.5rem; padding: 0.5rem 1rem;
+            background: #667eea; color: white; text-decoration: none;
+            border-radius: 6px; font-weight: 600; transition: background 0.3s;
+        }
+        .back-button:hover { background: #5568d3; }
+        h1 { color: #c0392b; margin-bottom: 0.5rem; font-size: 2.5rem; }
+        .subtitle { color: #7f8c8d; font-size: 1.1rem; margin-bottom: 2rem; }
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem; margin: 2rem 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white; padding: 1.5rem; border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-label { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .stat-unit { font-size: 1rem; opacity: 0.8; margin-left: 0.5rem; }
+        table { width: 100%; border-collapse: collapse; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #ecf0f1; }
+        th { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; font-weight: 600; }
+        tr:hover { background: #f8f9fa; }
+        .error { color: #e74c3c; font-weight: 600; }
+        .danger-box {
+            background: #f8d7da; border-left: 4px solid #dc3545;
+            padding: 1.5rem; margin: 2rem 0; border-radius: 6px;
+        }
+        .danger-box h3 { color: #721c24; margin-bottom: 0.5rem; }
+        .info-box {
+            background: #e3f2fd; border-left: 4px solid #2196f3;
+            padding: 1.5rem; margin: 2rem 0; border-radius: 6px;
+        }
+        .info-box h3 { color: #1976d2; margin-bottom: 0.5rem; }
+        h2 { margin-top: 3rem; color: #2c3e50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button">← Back to Reports</a>
+        <h1>❌ Failed Test Run — 10:12</h1>
+        <div class="subtitle">
+            March 29, 2026 at 10:12 AM • All Requests Failed • 1-Minute Sprint • v1.0.0.7
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">📦 Documents Created</div>
+                <div class="stat-value">0<span class="stat-unit">docs</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">❌ Total Errors</div>
+                <div class="stat-value">6,122<span class="stat-unit">errors</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⏱️ Duration</div>
+                <div class="stat-value">61<span class="stat-unit">seconds</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">💥 Success Rate</div>
+                <div class="stat-value">0<span class="stat-unit">%</span></div>
+            </div>
+        </div>
+
+        <div class="danger-box">
+            <h3>❌ Complete Test Failure — No Documents Created</h3>
+            <p>Every single request across all 10 threads failed. <strong>6,122 errors</strong> in 61 seconds (~100 errors/sec). No rate limit events were recorded, which rules out 429 throttling as the cause. Likely causes:</p>
+            <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
+                <li>Authentication token expired or mis-configured between tests</li>
+                <li>API endpoint connectivity issue (network/firewall)</li>
+                <li>BC environment temporarily unavailable</li>
+                <li>Configuration change between the 10:05 and 10:17 runs</li>
+            </ul>
+            <p style="margin-top: 0.5rem;">The test at <strong>10:17</strong> succeeded normally, confirming this was a transient issue resolved by the next run.</p>
+        </div>
+
+        <div class="info-box">
+            <h3>📋 Test Context</h3>
+            <p>This run occurred between two successful SO investigation tests (09:57, 10:05) and the first multi-threaded sprint test (10:17). It is preserved as a data point showing what a complete auth/connectivity failure looks like — not representative of BC API capability.</p>
+        </div>
+
+        <h2>📊 Per-Thread Breakdown</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Thread</th>
+                    <th>Type</th>
+                    <th>Success</th>
+                    <th>Errors</th>
+                    <th>Rate Limits</th>
+                    <th>Avg Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Thread 1</td><td>SO</td><td class="error">0</td><td class="error">619</td><td>0</td><td>—</td></tr>
+                <tr><td>Thread 1</td><td>PO</td><td class="error">0</td><td class="error">614</td><td>0</td><td>—</td></tr>
+                <tr><td>Thread 2</td><td>SO</td><td class="error">0</td><td class="error">617</td><td>0</td><td>—</td></tr>
+                <tr><td>Thread 2</td><td>PO</td><td class="error">0</td><td class="error">612</td><td>0</td><td>—</td></tr>
+                <tr><td>Thread 3</td><td>SO</td><td class="error">0</td><td class="error">619</td><td>0</td><td>—</td></tr>
+                <tr><td>Thread 3</td><td>PO</td><td class="error">0</td><td class="error">604</td><td>0</td><td>—</td></tr>
+                <tr><td>Thread 4</td><td>SO</td><td class="error">0</td><td class="error">617</td><td>0</td><td>—</td></tr>
+                <tr><td>Thread 4</td><td>PO</td><td class="error">0</td><td class="error">604</td><td>0</td><td>—</td></tr>
+                <tr><td>Thread 5</td><td>SO</td><td class="error">0</td><td class="error">615</td><td>0</td><td>—</td></tr>
+                <tr><td>Thread 5</td><td>PO</td><td class="error">0</td><td class="error">601</td><td>0</td><td>—</td></tr>
+                <tr style="background:#f8f9fa; font-weight:700;"><td colspan="2"><strong>Total</strong></td><td class="error">0</td><td class="error">6,122</td><td>0</td><td>—</td></tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

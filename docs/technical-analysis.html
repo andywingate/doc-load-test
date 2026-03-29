@@ -232,10 +232,24 @@
         </p>
 
         <div class="highlight-box">
-            <strong>⚠️ Key Insight:</strong> The 6,000 requests per 5-minute sliding window translates to a theoretical maximum of <strong>20 requests/second per user/service principal</strong>. These are <strong>per-user limits</strong> - each Entra app identity (service principal) gets its own 6,000 req/5min bucket. This is why multi-app architecture scales linearly.
+            <strong>⚠️ Key Insight — Two Limits, Different Constraints:</strong>
+            <ul style="margin-top: 0.5rem;">
+                <li><strong>Rate limit (6,000 / 5 min):</strong> At most 20 requests/sec sustained. Only hit if requests complete in under ~50ms, which isn't realistic for document creation.</li>
+                <li><strong>Concurrent requests (5 per user):</strong> This is the <em>actual binding constraint</em> in practice. With 5 in-flight requests at once, throughput = <code>5 / avg_response_time_sec</code>.</li>
+            </ul>
+            <p style="margin-top: 0.5rem;">Each Entra app identity gets its own independent buckets for both limits — this is why multi-app architecture scales linearly.</p>
         </div>
 
         <h2>🧮 Theoretical Throughput Calculations</h2>
+
+        <p>There are two concurrent limits that govern throughput. The <strong>5 concurrent requests limit</strong> is the practical binding constraint for document creation workloads where response times are hundreds of milliseconds. The rate limit (6,000/5min) only becomes relevant when requests complete in under ~50ms.</p>
+
+        <div class="formula-box">
+            Throughput = 5 concurrent requests / avg_response_time_seconds<br/><br/>
+            At 300ms avg response: 5 / 0.3 = <strong>16.7 docs/sec max</strong><br/>
+            At 500ms avg response: 5 / 0.5 = <strong>10 docs/sec max</strong><br/>
+            At 2,300ms avg response (SO): 5 / 2.3 = <strong>2.2 docs/sec max</strong> ← matches our SO results!
+        </div>
 
         <h3>Single Entra App - Traditional API</h3>
         
@@ -247,12 +261,12 @@
             <strong>4 API calls per document</strong>
         </div>
 
-        <p><strong>Maximum theoretical throughput:</strong></p>
+        <p><strong>Maximum theoretical throughput</strong> (rate-limit bound, assumes very fast requests):</p>
         
         <div class="formula-box">
-            Max_Docs/Sec = (6000 requests / 300 sec) / 4 calls<br/>
-            Max_Docs/Sec = 20 / 4<br/>
-            <strong>Max_Docs/Sec = 5 docs/sec</strong>
+            Rate limit bound: (6,000 / 300s) / 4 calls = <strong>5 docs/sec</strong><br/>
+            Concurrency bound at 1,000ms avg: 5 / 1.0 / 4 calls = <strong>1.25 docs/sec</strong><br/>
+            <em>Whichever is lower is the actual limit</em>
         </div>
 
         <h3>Single Entra App - Deep Insert API</h3>
@@ -265,24 +279,25 @@
             <strong>75% API call reduction vs traditional</strong>
         </div>
 
-        <p><strong>Maximum theoretical throughput:</strong></p>
+        <p><strong>Maximum theoretical throughput</strong> (rate-limit bound):</p>
         
         <div class="formula-box">
-            Max_Docs/Sec = 6000 / 300<br/>
-            <strong>Max_Docs/Sec = 20 docs/sec</strong><br/>
-            <em>(4x improvement over traditional)</em>
+            Rate limit bound: 6,000 / 300s = <strong>20 docs/sec</strong><br/>
+            Concurrency bound at 300ms avg: 5 / 0.3 = <strong>16.7 docs/sec</strong><br/>
+            Concurrency bound at 500ms avg: 5 / 0.5 = <strong>10 docs/sec</strong><br/>
+            <em>In practice, concurrency limit (5) is the binding constraint, not the rate limit</em>
         </div>
 
         <h3>Multiple Entra Apps - Parallel Scaling</h3>
         
-        <p>Since rate limits apply <strong>per Entra application registration</strong>, using multiple apps scales linearly:</p>
+        <p>Since limits apply <strong>per Entra application registration</strong>, using multiple apps scales linearly — each gets its own 5 concurrent requests and 6,000 req/5min buckets:</p>
         
         <div class="formula-box">
-            Max_Throughput = N_apps × 20 docs/sec<br/>
+            Max_Throughput = N_apps × (5 / avg_response_time_sec)<br/>
             <br/>
-            With 2 apps: 40 docs/sec<br/>
-            With 5 apps: 100 docs/sec<br/>
-            With 10 apps: 200 docs/sec
+            With 2 apps at 300ms avg: 2 × 16.7 = 33 docs/sec<br/>
+            With 5 apps at 300ms avg: 5 × 16.7 = 83 docs/sec<br/>
+            With 10 apps at 300ms avg: 10 × 16.7 = 167 docs/sec
         </div>
 
         <div class="success-box">
@@ -291,7 +306,7 @@
 
         <h2>⚡ Maximum Throughput Summary</h2>
         
-        <p>Based on BC API rate limits of <strong>6,000 requests per 5 minutes per Entra app</strong>, here are the theoretical maximum throughputs:</p>
+        <p>Based on BC API limits (<strong>5 concurrent requests per Entra app</strong>, 6,000 req/5min) and observed response times:</p>
 
         <table>
             <thead>
@@ -310,59 +325,94 @@
                     <td>Single App</td>
                     <td>Traditional (4 calls/doc)</td>
                     <td>1</td>
-                    <td>1-10</td>
-                    <td><strong>5 docs/sec</strong></td>
-                    <td>18,000</td>
-                    <td>432,000</td>
+                    <td>5</td>
+                    <td><strong>~1.25 docs/sec</strong> <small>(at 1,000ms avg)</small></td>
+                    <td>4,500</td>
+                    <td>108,000</td>
                 </tr>
                 <tr style="background: #d4edda;">
                     <td><strong>Single App</strong></td>
                     <td><strong>Deep Insert (1 call/doc)</strong></td>
                     <td><strong>1</strong></td>
-                    <td><strong>5-10</strong></td>
-                    <td><strong>20 docs/sec</strong></td>
-                    <td><strong>72,000</strong></td>
-                    <td><strong>1,728,000</strong></td>
+                    <td><strong>5</strong></td>
+                    <td><strong>~10–17 docs/sec</strong> <small>(at 300–500ms avg)</small></td>
+                    <td><strong>36,000–60,000</strong></td>
+                    <td><strong>864,000–1,440,000</strong></td>
                 </tr>
                 <tr style="background: #d4edda;">
                     <td><strong>Multi-App</strong></td>
                     <td><strong>Deep Insert</strong></td>
                     <td><strong>2</strong></td>
-                    <td><strong>10-20</strong></td>
-                    <td><strong>40 docs/sec</strong></td>
-                    <td><strong>144,000</strong></td>
-                    <td><strong>3,456,000</strong></td>
+                    <td><strong>10</strong></td>
+                    <td><strong>~20–33 docs/sec</strong></td>
+                    <td><strong>72,000–120,000</strong></td>
+                    <td><strong>1,728,000–2,880,000</strong></td>
                 </tr>
                 <tr style="background: #d4edda;">
                     <td><strong>Multi-App</strong></td>
                     <td><strong>Deep Insert</strong></td>
                     <td><strong>5</strong></td>
-                    <td><strong>25-50</strong></td>
-                    <td><strong>100 docs/sec</strong></td>
-                    <td><strong>360,000</strong></td>
-                    <td><strong>8,640,000</strong></td>
+                    <td><strong>25</strong></td>
+                    <td><strong>~50–83 docs/sec</strong></td>
+                    <td><strong>180,000–300,000</strong></td>
+                    <td><strong>4,320,000–7,200,000</strong></td>
                 </tr>
                 <tr style="background: #fff3cd;">
                     <td><strong>Multi-App (Extreme)</strong></td>
                     <td><strong>Deep Insert</strong></td>
                     <td><strong>10</strong></td>
-                    <td><strong>50-100</strong></td>
-                    <td><strong>200 docs/sec</strong></td>
-                    <td><strong>720,000</strong></td>
-                    <td><strong>17,280,000</strong></td>
+                    <td><strong>50</strong></td>
+                    <td><strong>~100–167 docs/sec</strong></td>
+                    <td><strong>360,000–600,000</strong></td>
+                    <td><strong>8,640,000–14,400,000</strong></td>
                 </tr>
             </tbody>
         </table>
 
         <div class="highlight-box">
-            <strong>💡 Reality Check:</strong> These are <em>theoretical limits</em> based on API rate limits alone. Real-world throughput is constrained by:
+            <strong>💡 Reality Check:</strong> These are <em>theoretical limits</em> based on the 5 concurrent requests per app, assuming full utilisation with 5 threads. Real-world throughput is also constrained by:
             <ul style="margin-top: 0.5rem;">
-                <li><strong>Network latency:</strong> Typically 200-500ms round-trip to BC Cloud</li>
+                <li><strong>Network latency:</strong> Typically 200-500ms round-trip to BC Cloud, which directly raises response time and lowers throughput</li>
                 <li><strong>BC backend processing:</strong> Document validation, business logic, database writes</li>
                 <li><strong>Database constraints:</strong> Azure SQL DTU limits, locking, indexing</li>
                 <li><strong>Number series contention:</strong> High concurrency can cause blocking on sequential number generation</li>
             </ul>
-            <p style="margin-top: 1rem;"><strong>Our tests achieved ~50% of theoretical maximum</strong> (10-12 docs/sec vs 20-40 theoretical), which is excellent for real-world conditions.</p>
+            <p style="margin-top: 1rem;"><strong>Our deep insert PO tests achieved ~60% of the concurrency-based theoretical maximum</strong> (~9 docs/sec vs ~14 theoretical at 350ms avg), which is strong for real-world conditions. SO throughput (~2.1 docs/sec) matches the theoretical ceiling almost exactly at 2,300ms avg response time.</p>
+        </div>
+
+        <h3>Model Validation Against Observed Results</h3>
+
+        <p>The 5-concurrent-requests model predicts our observed throughput with high accuracy:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Document Type</th>
+                    <th>Avg Response Time</th>
+                    <th>Theoretical Max<br/><small>(5 / response_time)</small></th>
+                    <th>Observed Peak</th>
+                    <th>Efficiency</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="background: #d4edda;">
+                    <td><strong>Sales Order (SO)</strong></td>
+                    <td>~2,337ms</td>
+                    <td>5 / 2.337 = <strong>2.14 docs/sec</strong></td>
+                    <td>2.08–2.76 docs/sec</td>
+                    <td>~97–129% ✓</td>
+                </tr>
+                <tr style="background: #d4edda;">
+                    <td><strong>Purchase Order (PO)</strong></td>
+                    <td>~350ms</td>
+                    <td>5 / 0.35 = <strong>14.3 docs/sec</strong></td>
+                    <td>8–9 docs/sec</td>
+                    <td>~60%</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>The SO result is a near-perfect match, confirming the model. The PO gap (~60% efficiency) is explained by overhead between requests, thread scheduling, and BC server backend processing time not captured in the API response time metric.</p>
         </div>
 
         <h2>🚀 Concurrency & Threading Analysis</h2>

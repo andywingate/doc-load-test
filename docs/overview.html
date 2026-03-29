@@ -152,23 +152,23 @@
         <div class="stats-summary">
             <div class="summary-card">
                 <div class="label">Total Tests Run</div>
-                <div class="value">9</div>
+                <div class="value">14</div>
             </div>
             <div class="summary-card">
                 <div class="label">Total Documents</div>
-                <div class="value">25,000</div>
+                <div class="value">26,225</div>
             </div>
             <div class="summary-card">
                 <div class="label">Total Lines</div>
-                <div class="value">75,000</div>
+                <div class="value">78,675</div>
             </div>
             <div class="summary-card">
                 <div class="label">Total Test Time</div>
-                <div class="value">248 min</div>
+                <div class="value">257 min</div>
             </div>
             <div class="summary-card">
                 <div class="label">Success Rate</div>
-                <div class="value">99.9%</div>
+                <div class="value">99.5%</div>
             </div>
         </div>
 
@@ -189,6 +189,30 @@
                 </tr>
             </thead>
             <tbody>
+                <tr>
+                    <td>2026-03-29 12:12</td>
+                    <td><span class="badge badge-sprint">Sprint</span></td>
+                    <td>SO Scale Test (3 Apps × 5 threads)</td>
+                    <td>67s</td>
+                    <td>130</td>
+                    <td>390</td>
+                    <td style="color: #e74c3c; font-weight: 600;">1.94/s SO</td>
+                    <td>98.5%</td>
+                    <td>v1.0.0.7</td>
+                    <td><a href="sprint-report-20260329-121210.html" class="test-link">View →</a></td>
+                </tr>
+                <tr>
+                    <td>2026-03-29 11:51</td>
+                    <td><span class="badge badge-sprint">Sprint</span></td>
+                    <td>SO Endurance (5 threads, 5 min)</td>
+                    <td>302s</td>
+                    <td>614</td>
+                    <td>1,842</td>
+                    <td style="color: #e67e22; font-weight: 600;">2.03/s SO</td>
+                    <td>100%</td>
+                    <td>v1.0.0.7</td>
+                    <td><a href="sprint-report-20260329-115603.html" class="test-link">View →</a></td>
+                </tr>
                 <tr>
                     <td>2026-03-29 11:47</td>
                     <td><span class="badge badge-sprint">Sprint</span></td>
@@ -236,6 +260,42 @@
                     <td>99.6%</td>
                     <td>v1.0.0.5</td>
                     <td><a href="sprint-report-20260329-104050.html" class="test-link">View →</a></td>
+                </tr>
+                <tr>
+                    <td>2026-03-29 10:12</td>
+                    <td><span class="badge badge-sprint">Sprint</span></td>
+                    <td>⚠️ Failed Run (all errors)</td>
+                    <td>61s</td>
+                    <td style="color: #e74c3c;">0</td>
+                    <td>—</td>
+                    <td style="color: #e74c3c; font-weight: 600;">0/s</td>
+                    <td style="color: #e74c3c; font-weight: 600;">0%</td>
+                    <td>v1.0.0.7</td>
+                    <td><a href="sprint-report-20260329-101312.html" class="test-link">View →</a></td>
+                </tr>
+                <tr>
+                    <td>2026-03-29 10:05</td>
+                    <td><span class="badge badge-sprint">Sprint</span></td>
+                    <td>SO Investigation (5 SO threads)</td>
+                    <td>65s</td>
+                    <td>275</td>
+                    <td>825</td>
+                    <td style="color: #e67e22; font-weight: 600;">4.23/s SO</td>
+                    <td>96.5%</td>
+                    <td>v1.0.0.7</td>
+                    <td><a href="sprint-report-20260329-100618.html" class="test-link">View →</a></td>
+                </tr>
+                <tr>
+                    <td>2026-03-29 09:57</td>
+                    <td><span class="badge badge-sprint">Sprint</span></td>
+                    <td>SO Investigation (5 SO threads)</td>
+                    <td>61s</td>
+                    <td>206</td>
+                    <td>618</td>
+                    <td style="color: #e67e22; font-weight: 600;">3.35/s SO</td>
+                    <td>100%</td>
+                    <td>v1.0.0.7</td>
+                    <td><a href="sprint-report-20260329-095847.html" class="test-link">View →</a></td>
                 </tr>
                 <tr>
                     <td>2026-03-29 10:17</td>
@@ -323,28 +383,28 @@
         new Chart(throughputCtx, {
             type: 'line',
             data: {
-                labels: ['Mar 28 09:17', 'Mar 28 23:12', 'Mar 28 23:43', 'Mar 29 00:08', 'Mar 29 10:17', 'Mar 29 10:40', 'Mar 29 10:50', 'Mar 29 11:14', 'Mar 29 11:47'],
+                labels: ['Mar 28 09:17', 'Mar 28 23:12', 'Mar 28 23:43', 'Mar 29 00:08', 'Mar 29 09:57', 'Mar 29 10:05', 'Mar 29 10:17', 'Mar 29 10:40', 'Mar 29 10:50', 'Mar 29 11:14', 'Mar 29 11:47', 'Mar 29 11:51', 'Mar 29 12:12'],
                 datasets: [{
                     label: 'SO Throughput',
-                    data: [0.38, 0.85, 0.87, 0.36, 2.76, 2.61, 2.13, 2.13, 2.08],
+                    data: [0.38, 0.85, 0.87, 0.36, 3.35, 4.23, 2.76, 2.61, 2.13, 2.13, 2.08, 2.03, 1.94],
                     borderColor: '#3498db',
                     backgroundColor: 'rgba(52, 152, 219, 0.05)',
                     tension: 0.3,
                     fill: false,
                     pointRadius: 6,
-                    pointBackgroundColor: ['transparent','transparent','transparent','transparent','#3498db','#3498db','#3498db','#3498db','#3498db'],
-                    pointBorderColor: '#3498db',
+                    pointBackgroundColor: ['transparent','transparent','transparent','transparent','#e67e22','#e67e22','#3498db','#3498db','#3498db','#3498db','#3498db','#e67e22','#e67e22'],
+                    pointBorderColor: ['#3498db','#3498db','#3498db','#3498db','#e67e22','#e67e22','#3498db','#3498db','#3498db','#3498db','#3498db','#e67e22','#e67e22'],
                     pointBorderWidth: 2,
                     borderDash: [5, 5]
                 }, {
                     label: 'PO Throughput',
-                    data: [1.15, 2.53, 2.61, 1.07, 7.62, 9.16, 8.97, 8.07, null],
+                    data: [1.15, 2.53, 2.61, 1.07, null, null, 7.62, 9.16, 8.97, 8.07, null, null, null],
                     borderColor: '#27ae60',
                     backgroundColor: 'rgba(39, 174, 96, 0.05)',
                     tension: 0.3,
                     fill: false,
                     pointRadius: 6,
-                    pointBackgroundColor: ['transparent','transparent','transparent','transparent','#27ae60','#27ae60','#27ae60','#27ae60','transparent'],
+                    pointBackgroundColor: ['transparent','transparent','transparent','transparent','transparent','transparent','#27ae60','#27ae60','#27ae60','#27ae60','transparent','transparent','transparent'],
                     pointBorderColor: '#27ae60',
                     pointBorderWidth: 2,
                     borderDash: [5, 5]
@@ -364,8 +424,9 @@
                         callbacks: {
                             label: function(context) {
                                 const estimated = context.dataIndex < 4;
-                                const suffix = estimated ? ' (est.)' : '';
-                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' docs/sec' + suffix;
+                                const soInv = context.dataIndex === 4 || context.dataIndex === 5;
+                                const suffix = estimated ? ' (est.)' : soInv && context.dataset.label === 'SO Throughput' ? ' (SO inv.)' : '';
+                                return context.dataset.label + ': ' + (context.parsed.y !== null ? context.parsed.y.toFixed(2) + ' docs/sec' + suffix : 'n/a');
                             }
                         }
                     }
@@ -384,31 +445,39 @@
         new Chart(documentsCtx, {
             type: 'bar',
             data: {
-                labels: ['Endurance\n(Traditional)', 'Deep Insert\n(Initial)', 'Deep Insert\n(2-min)', 'Endurance\n(Deep Insert)', 'Sprint\n(10 threads)', 'Multi-App\n(5+5)', 'Multi-App\n(5+5)', 'Multi-App\n(10+5)', 'SO-Only\n(5+0)'],
+                labels: ['Endurance\n(Traditional)', 'Deep Insert\n(Initial)', 'Deep Insert\n(2-min)', 'Endurance\n(Deep Insert)', 'SO Inv.\n(09:57)', 'SO Inv.\n(10:05)', 'Sprint\n(10 threads)', 'Multi-App\n(5+5)', 'Multi-App\n(5+5)', 'Multi-App\n(10+5)', 'SO-Only\n(5+0)', 'SO Endurance\n(5-min)', 'SO Scale\n(3 Apps)'],
                 datasets: [{
                     label: 'Documents Created',
-                    data: [11019, 406, 418, 10318, 639, 726, 689, 656, 129],
+                    data: [11019, 406, 418, 10318, 206, 275, 639, 726, 689, 656, 129, 614, 130],
                     backgroundColor: [
                         '#3498db',
                         '#27ae60',
                         '#27ae60',
                         '#3498db',
+                        '#e67e22',
+                        '#e67e22',
                         '#f093fb',
                         '#f093fb',
                         '#f093fb',
                         '#f093fb',
-                        '#e67e22'
+                        '#e67e22',
+                        '#e67e22',
+                        '#e74c3c'
                     ],
                     borderColor: [
                         '#2980b9',
                         '#229954',
                         '#229954',
                         '#2980b9',
+                        '#d35400',
+                        '#d35400',
                         '#d8479f',
                         '#d8479f',
                         '#d8479f',
                         '#d8479f',
-                        '#d35400'
+                        '#d35400',
+                        '#d35400',
+                        '#c0392b'
                     ],
                     borderWidth: 2
                 }]
@@ -432,11 +501,11 @@
         new Chart(methodCtx, {
             type: 'doughnut',
             data: {
-                labels: ['Sprint Tests (5)', 'Deep Insert (3)', 'Traditional (1)'],
+                labels: ['Sprint Tests (5)', 'SO-Only Tests (4)', 'Deep Insert (3)', 'Traditional (1)'],
                 datasets: [{
-                    data: [5, 3, 1],
-                    backgroundColor: ['#f093fb', '#27ae60', '#3498db'],
-                    borderColor: ['#d8479f', '#229954', '#2980b9'],
+                    data: [5, 4, 3, 1],
+                    backgroundColor: ['#f093fb', '#e67e22', '#27ae60', '#3498db'],
+                    borderColor: ['#d8479f', '#d35400', '#229954', '#2980b9'],
                     borderWidth: 2
                 }]
             },

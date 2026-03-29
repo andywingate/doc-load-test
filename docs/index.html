@@ -200,6 +200,36 @@
                 <h2 class="section-title">📊 Test Reports</h2>
                 
                 <div class="report-grid">
+                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-121210.html'">
+                        <h3>🏗️ SO Scale Test (3 Apps × 5 Threads)</h3>
+                        <div class="date">📅 2026-03-29 12:12 (67 seconds)</div>
+                        <div class="stats">
+                            <div class="stat"><div class="label">SO Documents</div><div class="value">130</div></div>
+                            <div class="stat"><div class="label">SO Throughput</div><div class="value" style="color:#e74c3c;">1.94/s</div></div>
+                            <div class="stat"><div class="label">Threads</div><div class="value">15</div></div>
+                            <div class="stat"><div class="label">Avg Response</div><div class="value" style="color:#e74c3c;">7,140ms</div></div>
+                        </div>
+                        <div class="description">
+                            15 SO threads across 3 Entra apps. Response times tripled to 7,140ms — BC backend contention, not API limits. Multi-app does NOT scale SO throughput.
+                        </div>
+                        <a href="sprint-report-20260329-121210.html" class="view-button">View Full Report →</a>
+                    </div>
+
+                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-115603.html'">
+                        <h3>📊 SO Endurance — 5-Minute Run</h3>
+                        <div class="date">📅 2026-03-29 11:51 (302 seconds)</div>
+                        <div class="stats">
+                            <div class="stat"><div class="label">SO Documents</div><div class="value">614</div></div>
+                            <div class="stat"><div class="label">SO Throughput</div><div class="value" style="color:#e67e22;">2.03/s</div></div>
+                            <div class="stat"><div class="label">Duration</div><div class="value">5 min</div></div>
+                            <div class="stat"><div class="label">Success</div><div class="value" style="color:#27ae60;">100%</div></div>
+                        </div>
+                        <div class="description">
+                            5-minute endurance confirming the SO baseline. Perfectly consistent throughput, all 5 threads steady. Confirms SO ceiling is ~2 docs/sec with 5 threads.
+                        </div>
+                        <a href="sprint-report-20260329-115603.html" class="view-button">View Full Report →</a>
+                    </div>
+
                     <div class="report-card" onclick="window.location.href='sprint-report-20260329-114739.html'">
                         <h3>🔍 SO-Only Sprint Test (5 Threads)</h3>
                         <div class="date">📅 2026-03-29 11:47 (62 seconds)</div>
@@ -318,6 +348,51 @@
                         </div>
                         
                         <a href="sprint-report-20260329-104050.html" class="view-button">View Full Report →</a>
+                    </div>
+
+                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-101312.html'" style="border-color:#e74c3c;">
+                        <h3>❌ Failed Test Run</h3>
+                        <div class="date">📅 2026-03-29 10:12 (60 seconds)</div>
+                        <div class="stats">
+                            <div class="stat"><div class="label">Documents</div><div class="value" style="color:#e74c3c;">0</div></div>
+                            <div class="stat"><div class="label">Errors</div><div class="value" style="color:#e74c3c;">6,122</div></div>
+                            <div class="stat"><div class="label">Threads</div><div class="value">10</div></div>
+                            <div class="stat"><div class="label">Success</div><div class="value" style="color:#e74c3c;">0%</div></div>
+                        </div>
+                        <div class="description">
+                            Complete failure — all 6,122 requests errored (auth or connectivity issue). Resolved by the 10:17 run with zero errors. Reference baseline only.
+                        </div>
+                        <a href="sprint-report-20260329-101312.html" class="view-button" style="background:#e74c3c;">View Full Report →</a>
+                    </div>
+
+                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-100618.html'">
+                        <h3>🔬 SO Investigation — Best Result (10:05)</h3>
+                        <div class="date">📅 2026-03-29 10:05 (65 seconds)</div>
+                        <div class="stats">
+                            <div class="stat"><div class="label">SO Documents</div><div class="value">275</div></div>
+                            <div class="stat"><div class="label">SO Throughput</div><div class="value" style="color:#27ae60;">4.23/s</div></div>
+                            <div class="stat"><div class="label">Avg Response</div><div class="value" style="color:#27ae60;">930ms</div></div>
+                            <div class="stat"><div class="label">Success</div><div class="value">96.5%</div></div>
+                        </div>
+                        <div class="description">
+                            Best SO throughput ever recorded. BC server was exceptionally fast at 930ms avg response — confirming SO ceiling is entirely response-time driven.
+                        </div>
+                        <a href="sprint-report-20260329-100618.html" class="view-button">View Full Report →</a>
+                    </div>
+
+                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-095847.html'">
+                        <h3>🔬 SO Investigation (09:57)</h3>
+                        <div class="date">📅 2026-03-29 09:57 (62 seconds)</div>
+                        <div class="stats">
+                            <div class="stat"><div class="label">SO Documents</div><div class="value">206</div></div>
+                            <div class="stat"><div class="label">SO Throughput</div><div class="value" style="color:#e67e22;">3.35/s</div></div>
+                            <div class="stat"><div class="label">Avg Response</div><div class="value">1,456ms</div></div>
+                            <div class="stat"><div class="label">Success</div><div class="value" style="color:#27ae60;">100%</div></div>
+                        </div>
+                        <div class="description">
+                            SO investigation run. Fast BC responses at 1,456ms showing light server load. Establishes the response-time / throughput relationship for SO.
+                        </div>
+                        <a href="sprint-report-20260329-095847.html" class="view-button">View Full Report →</a>
                     </div>
 
                     <div class="report-card" onclick="window.location.href='sprint-report-20260329-101755.html'">

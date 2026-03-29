@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SO Endurance 5-Min - 11:51 - March 29, 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem; color: #333;
+        }
+        .container {
+            max-width: 1400px; margin: 0 auto; background: white;
+            border-radius: 16px; padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .back-button {
+            display: inline-block; margin-bottom: 1.5rem; padding: 0.5rem 1rem;
+            background: #667eea; color: white; text-decoration: none;
+            border-radius: 6px; font-weight: 600; transition: background 0.3s;
+        }
+        .back-button:hover { background: #5568d3; }
+        h1 { color: #2c3e50; margin-bottom: 0.5rem; font-size: 2.5rem; }
+        .subtitle { color: #7f8c8d; font-size: 1.1rem; margin-bottom: 2rem; }
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem; margin: 2rem 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+            color: white; padding: 1.5rem; border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-label { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .stat-unit { font-size: 1rem; opacity: 0.8; margin-left: 0.5rem; }
+        .chart-container {
+            margin: 2rem 0; padding: 1.5rem; background: #f8f9fa;
+            border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .chart-title { font-size: 1.3rem; font-weight: 600; color: #2c3e50; margin-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #ecf0f1; }
+        th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; }
+        tr:hover { background: #f8f9fa; }
+        .success { color: #27ae60; font-weight: 600; }
+        .info-box {
+            background: #e3f2fd; border-left: 4px solid #2196f3;
+            padding: 1.5rem; margin: 2rem 0; border-radius: 6px;
+        }
+        .info-box h3 { color: #1976d2; margin-bottom: 0.5rem; }
+        .highlight-box {
+            background: #fff3cd; border-left: 4px solid #ffc107;
+            padding: 1.5rem; margin: 2rem 0; border-radius: 6px;
+        }
+        .highlight-box h3 { color: #856404; margin-bottom: 0.5rem; }
+        h2 { margin-top: 3rem; color: #2c3e50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button">← Back to Reports</a>
+        <h1>📊 SO Endurance — 5-Minute Run</h1>
+        <div class="subtitle">
+            March 29, 2026 at 11:51 AM • Sales Orders Only • 5-Minute Endurance • v1.0.0.7
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">📦 SO Documents</div>
+                <div class="stat-value">614<span class="stat-unit">docs</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⚡ SO Throughput</div>
+                <div class="stat-value">2.03<span class="stat-unit">docs/sec</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⏱️ Duration</div>
+                <div class="stat-value">302<span class="stat-unit">seconds (5 min)</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">✅ Success Rate</div>
+                <div class="stat-value">100<span class="stat-unit">%</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⏳ Avg Response</div>
+                <div class="stat-value">2,442<span class="stat-unit">ms</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🧵 SO Threads</div>
+                <div class="stat-value">5<span class="stat-unit">threads</span></div>
+            </div>
+        </div>
+
+        <div class="highlight-box">
+            <h3>🔁 5-Minute SO Baseline Confirmation</h3>
+            <p>This 5-minute endurance run confirms the SO baseline first seen in the 11:47 sprint (<strong>2.08 docs/sec</strong>). At 2.03 docs/sec over 5 minutes with 100% success rate and perfectly consistent thread performance, SO throughput is <strong>stable and predictable</strong> at ~2 docs/sec with 5 threads.</p>
+            <p style="margin-top: 0.5rem;">Concurrency model check: <code>5 threads / 2,442ms avg = 2.05 theoretical</code> vs 2.03 observed = <strong>99% efficiency</strong>. SO is operating at the theoretical ceiling — the only way to improve throughput is to lower BC response times or add more Entra apps.</p>
+        </div>
+
+        <div class="info-box">
+            <h3>🔬 Test Configuration</h3>
+            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li><strong>Pattern:</strong> Deep Insert API (1 call per document)</li>
+                <li><strong>Document Type:</strong> Sales Orders only</li>
+                <li><strong>Concurrent Threads:</strong> 5 SO threads</li>
+                <li><strong>Lines per Document:</strong> 3 lines</li>
+                <li><strong>Test Duration:</strong> 5 minutes (vs usual 1-minute sprints)</li>
+                <li><strong>App Version:</strong> v1.0.0.7</li>
+            </ul>
+        </div>
+
+        <h2>📊 Per-Thread Performance</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Thread</th>
+                    <th>Documents</th>
+                    <th>Errors</th>
+                    <th>Avg Response</th>
+                    <th>Rate (docs/sec)</th>
+                    <th>Consistency</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>SO-T1</td><td class="success">124</td><td>0</td><td>2,429ms</td><td>0.41</td><td>✅ Stable</td></tr>
+                <tr><td>SO-T2</td><td class="success">123</td><td>0</td><td>2,439ms</td><td>0.41</td><td>✅ Stable</td></tr>
+                <tr><td>SO-T3</td><td class="success">122</td><td>0</td><td>2,454ms</td><td>0.40</td><td>✅ Stable</td></tr>
+                <tr><td>SO-T4</td><td class="success">123</td><td>0</td><td>2,440ms</td><td>0.41</td><td>✅ Stable</td></tr>
+                <tr><td>SO-T5</td><td class="success">122</td><td>0</td><td>2,447ms</td><td>0.40</td><td>✅ Stable</td></tr>
+                <tr style="background:#f8f9fa; font-weight:700;"><td><strong>Total / Avg</strong></td><td>614</td><td>0</td><td>2,442ms</td><td><strong>2.03</strong></td><td>Excellent</td></tr>
+            </tbody>
+        </table>
+
+        <div class="chart-container">
+            <div class="chart-title">📈 Documents per Thread Over 5 Minutes</div>
+            <canvas id="docChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('docChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['SO-T1', 'SO-T2', 'SO-T3', 'SO-T4', 'SO-T5'],
+                datasets: [{
+                    label: 'Documents Created',
+                    data: [124, 123, 122, 123, 122],
+                    backgroundColor: 'rgba(230, 126, 34, 0.7)',
+                    borderColor: '#d35400',
+                    borderWidth: 2
+                }, {
+                    label: 'Avg Response (ms / 100)',
+                    data: [24.29, 24.39, 24.54, 24.40, 24.47],
+                    type: 'line',
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'transparent',
+                    pointRadius: 5,
+                    tension: 0.2,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: true } },
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Documents' }, min: 115 },
+                    y1: { position: 'right', title: { display: true, text: 'Avg Response (ms/100)' }, min: 20, grid: { drawOnChartArea: false } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

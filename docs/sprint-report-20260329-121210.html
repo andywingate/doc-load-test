@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SO Scale Test - 3 Apps × 5 Threads - March 29, 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem; color: #333;
+        }
+        .container {
+            max-width: 1400px; margin: 0 auto; background: white;
+            border-radius: 16px; padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .back-button {
+            display: inline-block; margin-bottom: 1.5rem; padding: 0.5rem 1rem;
+            background: #667eea; color: white; text-decoration: none;
+            border-radius: 6px; font-weight: 600; transition: background 0.3s;
+        }
+        .back-button:hover { background: #5568d3; }
+        h1 { color: #2c3e50; margin-bottom: 0.5rem; font-size: 2.5rem; }
+        .subtitle { color: #7f8c8d; font-size: 1.1rem; margin-bottom: 2rem; }
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem; margin: 2rem 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white; padding: 1.5rem; border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-label { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .stat-unit { font-size: 1rem; opacity: 0.8; margin-left: 0.5rem; }
+        .chart-container {
+            margin: 2rem 0; padding: 1.5rem; background: #f8f9fa;
+            border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .chart-title { font-size: 1.3rem; font-weight: 600; color: #2c3e50; margin-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        th, td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid #ecf0f1; }
+        th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; }
+        tr:hover { background: #f8f9fa; }
+        tr.app2 { background: #fef9e7; }
+        tr.app3 { background: #eafaf1; }
+        .success { color: #27ae60; font-weight: 600; }
+        .warning { color: #f39c12; font-weight: 600; }
+        .info-box {
+            background: #e3f2fd; border-left: 4px solid #2196f3;
+            padding: 1.5rem; margin: 2rem 0; border-radius: 6px;
+        }
+        .info-box h3 { color: #1976d2; margin-bottom: 0.5rem; }
+        .danger-box {
+            background: #f8d7da; border-left: 4px solid #dc3545;
+            padding: 1.5rem; margin: 2rem 0; border-radius: 6px;
+        }
+        .danger-box h3 { color: #721c24; margin-bottom: 0.5rem; }
+        h2 { margin-top: 3rem; color: #2c3e50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button">← Back to Reports</a>
+        <h1>🏗️ SO Scale Test — 3 Entra Apps × 5 Threads</h1>
+        <div class="subtitle">
+            March 29, 2026 at 12:12 PM • 15 SO Threads • 3 App Pool • 1-Minute Sprint • v1.0.0.7
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">📦 SO Documents</div>
+                <div class="stat-value">130<span class="stat-unit">docs</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⚡ SO Throughput</div>
+                <div class="stat-value">1.94<span class="stat-unit">docs/sec</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⏱️ Duration</div>
+                <div class="stat-value">67<span class="stat-unit">seconds</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">✅ Success Rate</div>
+                <div class="stat-value">98.5<span class="stat-unit">%</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⏳ Avg Response</div>
+                <div class="stat-value">7,140<span class="stat-unit">ms</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🏗️ Architecture</div>
+                <div class="stat-value">3<span class="stat-unit">apps × 5 threads</span></div>
+            </div>
+        </div>
+
+        <div class="danger-box">
+            <h3>🚨 Key Finding: BC Backend Contention with 15 Concurrent SO Requests</h3>
+            <p>Despite using 3 separate Entra apps (each with its own 5-concurrent-request limit), throughput <strong>did not scale</strong> — it actually dropped slightly below the single-app baseline (1.94 vs 2.08 docs/sec). The root cause: <strong>response times jumped from ~2,400ms to ~7,140ms</strong> as the BC backend struggled with 15 simultaneous Sales Order creations.</p>
+            <p style="margin-top: 0.5rem;">The model still holds — <code>15 threads / 7,140ms avg = 2.10 theoretical ≈ 1.94 observed</code>. The per-user API limits were respected, but the <strong>BC business logic layer</strong> (Sales Order creation involves complex validation, inventory checks, pricing) became the bottleneck, not the API layer.</p>
+            <p style="margin-top: 0.5rem;"><strong>Contrast with PO:</strong> PO at 15 threads would yield ~9×3 = 27+ docs/sec, because PO creation is ~350ms (light backend processing). SO is ~2,400ms+ because it does much more work server-side.</p>
+        </div>
+
+        <div class="info-box">
+            <h3>🔬 Test Configuration</h3>
+            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li><strong>Pattern:</strong> Deep Insert API (1 call per document)</li>
+                <li><strong>Document Type:</strong> Sales Orders only</li>
+                <li><strong>App Pool Size:</strong> 3 Entra app registrations</li>
+                <li><strong>Threads per App:</strong> 5 (SO-T1–T5 → App1, T6–T10 → App2, T11–T15 → App3)</li>
+                <li><strong>Total Concurrent Threads:</strong> 15</li>
+                <li><strong>Lines per Document:</strong> 3 lines</li>
+                <li><strong>App Version:</strong> v1.0.0.7</li>
+            </ul>
+        </div>
+
+        <h2>📊 Per-Thread Performance</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Thread</th>
+                    <th>App</th>
+                    <th>Documents</th>
+                    <th>Errors</th>
+                    <th>Avg Response</th>
+                    <th>Rate (docs/sec)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>SO-T1</td><td>App 1</td><td class="success">10</td><td>0</td><td>6,462ms</td><td>0.15</td></tr>
+                <tr><td>SO-T2</td><td>App 1</td><td class="success">10</td><td>0</td><td>6,596ms</td><td>0.15</td></tr>
+                <tr><td>SO-T3</td><td>App 1</td><td class="success">9</td><td>0</td><td>6,611ms</td><td>0.13</td></tr>
+                <tr><td>SO-T4</td><td>App 1</td><td class="success">9</td><td>0</td><td>7,067ms</td><td>0.13</td></tr>
+                <tr><td>SO-T5</td><td>App 1</td><td class="success">9</td><td>0</td><td>6,838ms</td><td>0.13</td></tr>
+                <tr class="app2"><td>SO-T6</td><td>App 2</td><td class="success">8</td><td class="warning">1</td><td>7,256ms</td><td>0.12</td></tr>
+                <tr class="app2"><td>SO-T7</td><td>App 2</td><td class="success">9</td><td>0</td><td>7,098ms</td><td>0.13</td></tr>
+                <tr class="app2"><td>SO-T8</td><td>App 2</td><td class="success">9</td><td>0</td><td>7,122ms</td><td>0.13</td></tr>
+                <tr class="app2"><td>SO-T9</td><td>App 2</td><td class="success">8</td><td class="warning">1</td><td>7,318ms</td><td>0.12</td></tr>
+                <tr class="app2"><td>SO-T10</td><td>App 2</td><td class="success">9</td><td>0</td><td>7,192ms</td><td>0.13</td></tr>
+                <tr class="app3"><td>SO-T11</td><td>App 3</td><td class="success">8</td><td>0</td><td>7,465ms</td><td>0.12</td></tr>
+                <tr class="app3"><td>SO-T12</td><td>App 3</td><td class="success">8</td><td>0</td><td>7,374ms</td><td>0.12</td></tr>
+                <tr class="app3"><td>SO-T13</td><td>App 3</td><td class="success">8</td><td>0</td><td>7,536ms</td><td>0.12</td></tr>
+                <tr class="app3"><td>SO-T14</td><td>App 3</td><td class="success">8</td><td>0</td><td>7,565ms</td><td>0.12</td></tr>
+                <tr class="app3"><td>SO-T15</td><td>App 3</td><td class="success">8</td><td>0</td><td>7,591ms</td><td>0.12</td></tr>
+                <tr style="background:#f8f9fa; font-weight:700;"><td colspan="2"><strong>Total / Avg</strong></td><td>130</td><td>2</td><td>7,140ms</td><td><strong>1.94</strong></td></tr>
+            </tbody>
+        </table>
+
+        <div class="chart-container">
+            <div class="chart-title">📈 Avg Response Time by Thread (grouped by Entra App)</div>
+            <canvas id="responseChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">🆚 Scale vs Baseline Comparison</div>
+            <canvas id="comparisonChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Response time by thread
+        const rtCtx = document.getElementById('responseChart').getContext('2d');
+        new Chart(rtCtx, {
+            type: 'bar',
+            data: {
+                labels: ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12','T13','T14','T15'],
+                datasets: [{
+                    label: 'Avg Response (ms)',
+                    data: [6462,6596,6611,7067,6838,7256,7098,7122,7318,7192,7465,7374,7536,7565,7591],
+                    backgroundColor: [
+                        '#3498db','#3498db','#3498db','#3498db','#3498db',
+                        '#e67e22','#e67e22','#e67e22','#e67e22','#e67e22',
+                        '#27ae60','#27ae60','#27ae60','#27ae60','#27ae60'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => ctx.parsed.y.toLocaleString() + 'ms' } }
+                },
+                scales: {
+                    y: { beginAtZero: false, min: 5000, title: { display: true, text: 'Response Time (ms)' } }
+                }
+            }
+        });
+
+        // Comparison
+        const cmpCtx = document.getElementById('comparisonChart').getContext('2d');
+        new Chart(cmpCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Baseline\n(5 threads, 1 app)', '5-Min Endurance\n(5 threads, 1 app)', 'Scale Test\n(15 threads, 3 apps)'],
+                datasets: [{
+                    label: 'Throughput (docs/sec)',
+                    data: [2.08, 2.03, 1.94],
+                    backgroundColor: ['#3498db','#e67e22','#e74c3c'],
+                    borderWidth: 2
+                }, {
+                    label: 'Avg Response (ms / 1000)',
+                    data: [2.337, 2.442, 7.140],
+                    type: 'line',
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'transparent',
+                    pointRadius: 6,
+                    tension: 0.2,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: true } },
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'SO Throughput (docs/sec)' } },
+                    y1: { position: 'right', title: { display: true, text: 'Avg Response (ms / 1000)' }, grid: { drawOnChartArea: false } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SO Investigation Sprint - 10:05 - March 29, 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem; color: #333;
+        }
+        .container {
+            max-width: 1400px; margin: 0 auto; background: white;
+            border-radius: 16px; padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .back-button {
+            display: inline-block; margin-bottom: 1.5rem; padding: 0.5rem 1rem;
+            background: #667eea; color: white; text-decoration: none;
+            border-radius: 6px; font-weight: 600; transition: background 0.3s;
+        }
+        .back-button:hover { background: #5568d3; }
+        h1 { color: #2c3e50; margin-bottom: 0.5rem; font-size: 2.5rem; }
+        .subtitle { color: #7f8c8d; font-size: 1.1rem; margin-bottom: 2rem; }
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem; margin: 2rem 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+            color: white; padding: 1.5rem; border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-label { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .stat-unit { font-size: 1rem; opacity: 0.8; margin-left: 0.5rem; }
+        .chart-container {
+            margin: 2rem 0; padding: 1.5rem; background: #f8f9fa;
+            border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .chart-title { font-size: 1.3rem; font-weight: 600; color: #2c3e50; margin-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; margin: 2rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #ecf0f1; }
+        th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 600; }
+        tr:hover { background: #f8f9fa; }
+        .success { color: #27ae60; font-weight: 600; }
+        .warning { color: #f39c12; font-weight: 600; }
+        .info-box {
+            background: #e3f2fd; border-left: 4px solid #2196f3;
+            padding: 1.5rem; margin: 2rem 0; border-radius: 6px;
+        }
+        .info-box h3 { color: #1976d2; margin-bottom: 0.5rem; }
+        .highlight-box {
+            background: #d4edda; border-left: 4px solid #28a745;
+            padding: 1.5rem; margin: 2rem 0; border-radius: 6px;
+        }
+        .highlight-box h3 { color: #155724; margin-bottom: 0.5rem; }
+        h2 { margin-top: 3rem; color: #2c3e50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button">← Back to Reports</a>
+        <h1>🔬 SO Investigation Sprint - 10:05</h1>
+        <div class="subtitle">
+            March 29, 2026 at 10:05 AM • Sales Orders Only • 1-Minute Sprint • v1.0.0.7
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">📦 SO Documents</div>
+                <div class="stat-value">275<span class="stat-unit">docs</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⚡ SO Throughput</div>
+                <div class="stat-value">4.23<span class="stat-unit">docs/sec</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⏱️ Duration</div>
+                <div class="stat-value">65<span class="stat-unit">seconds</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">✅ SO Success Rate</div>
+                <div class="stat-value">96.5<span class="stat-unit">%</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⏳ Avg SO Response</div>
+                <div class="stat-value">930<span class="stat-unit">ms</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🧵 SO Threads</div>
+                <div class="stat-value">5<span class="stat-unit">threads</span></div>
+            </div>
+        </div>
+
+        <div class="highlight-box">
+            <h3>🏆 Best SO Throughput Recorded — 4.23 docs/sec</h3>
+            <p>This is the highest SO throughput observed across all tests. The key driver is the <strong>930ms average response time</strong> — less than half the typical ~2,337ms seen in later tests. At this response time, the 5 concurrent request limit gives a theoretical max of <strong>5.38 docs/sec</strong>, and 4.23 observed = <strong>79% efficiency</strong>.</p>
+            <p style="margin-top: 0.5rem;">This confirms SO throughput is <strong>entirely response-time driven</strong>. When BC server load is low, SO creation can reach 4+ docs/sec with just 5 threads. There is no path to higher SO throughput via more threads — only via lower BC response times or multiple Entra apps (each with their own 5-concurrent limit).</p>
+        </div>
+
+        <div class="info-box">
+            <h3>🔬 Test Configuration</h3>
+            <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                <li><strong>Pattern:</strong> Deep Insert API (1 call per document)</li>
+                <li><strong>Focus:</strong> Sales Orders only — investigating SO baseline performance</li>
+                <li><strong>Concurrent Threads:</strong> 5 SO threads</li>
+                <li><strong>Lines per Document:</strong> 3 lines</li>
+                <li><strong>Note:</strong> 10 SO errors (3.5%) — transient failures, likely brief connections issues</li>
+                <li><strong>App Version:</strong> v1.0.0.7</li>
+            </ul>
+        </div>
+
+        <h2>📊 Per-Thread Performance</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Thread</th>
+                    <th>Type</th>
+                    <th>Documents</th>
+                    <th>Errors</th>
+                    <th>Avg Response</th>
+                    <th>Rate (docs/sec)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Thread 1</td><td>SO</td><td class="success">57</td><td class="warning">2</td><td>914ms</td><td>0.88</td></tr>
+                <tr><td>Thread 2</td><td>SO</td><td class="success">54</td><td class="warning">2</td><td>929ms</td><td>0.83</td></tr>
+                <tr><td>Thread 3</td><td>SO</td><td class="success">55</td><td class="warning">2</td><td>940ms</td><td>0.85</td></tr>
+                <tr><td>Thread 4</td><td>SO</td><td class="success">54</td><td class="warning">2</td><td>939ms</td><td>0.83</td></tr>
+                <tr><td>Thread 5</td><td>SO</td><td class="success">55</td><td class="warning">2</td><td>937ms</td><td>0.85</td></tr>
+                <tr style="background:#f8f9fa; font-weight:700;"><td colspan="2"><strong>Total / Avg</strong></td><td>275</td><td>10</td><td>932ms</td><td><strong>4.23</strong></td></tr>
+            </tbody>
+        </table>
+
+        <h2>📈 SO Throughput vs Response Time — All Sprint Tests</h2>
+        <div class="chart-container">
+            <div class="chart-title">SO Throughput by Test (higher response time = lower throughput)</div>
+            <canvas id="comparisonChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('comparisonChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['09:57', '10:05\n(this test)', '10:17', '10:40', '10:50', '11:14', '11:47', '11:51', '12:12'],
+                datasets: [{
+                    label: 'SO Throughput (docs/sec)',
+                    data: [3.35, 4.23, 2.76, 2.61, 2.13, 2.13, 2.08, 2.03, 1.94],
+                    backgroundColor: ['#e67e22','#e67e22','#3498db','#3498db','#3498db','#3498db','#3498db','#e67e22','#e67e22'],
+                    borderColor: ['#d35400','#d35400','#2980b9','#2980b9','#2980b9','#2980b9','#2980b9','#d35400','#d35400'],
+                    borderWidth: 2
+                }, {
+                    label: 'Avg Response Time (ms / 100)',
+                    data: [14.56, 9.30, null, null, null, null, 23.37, 24.4, 71.4],
+                    type: 'line',
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'transparent',
+                    pointRadius: 5,
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: true } },
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'SO Docs/Sec' } },
+                    y1: { beginAtZero: true, position: 'right', title: { display: true, text: 'Avg Response (ms/100)' }, grid: { drawOnChartArea: false } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
