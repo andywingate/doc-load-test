@@ -1,0 +1,5 @@
+{
+    "powershell.scriptAnalysis.exclude": [
+        "scripts/bc-staging-load.ps1"
+    ]
+}

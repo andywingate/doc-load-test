@@ -1,5 +1,6 @@
 # bc-staging-load.ps1
-# Loads SO staging rows into the BC staging table via the flat API.
+# Loads document staging rows into the BC staging table via the flat API.
+# Supports both Sales Orders and Purchase Orders.
 # No deep insert — just simple flat POSTs, one per line.
 #
 # Usage:
@@ -9,8 +10,11 @@
 #   # Load 100 SOs with 3 lines each:
 #   .\scripts\bc-staging-load.ps1 -Mode Load -SalesOrders 100 -LinesPerDoc 3
 #
-#   # Load with multi-threading:
-#   .\scripts\bc-staging-load.ps1 -Mode Load -SalesOrders 500 -LinesPerDoc 5 -Threads 5
+#   # Load 50 POs with 5 lines each:
+#   .\scripts\bc-staging-load.ps1 -Mode Load -PurchaseOrders 50 -LinesPerDoc 5
+#
+#   # Load mix of SOs and POs with multi-threading:
+#   .\scripts\bc-staging-load.ps1 -Mode Load -SalesOrders 200 -PurchaseOrders 100 -LinesPerDoc 3 -Threads 5
 #
 #   # Check batch status:
 #   .\scripts\bc-staging-load.ps1 -Mode Status -BatchId "LT-20260329-120000"
@@ -26,9 +30,11 @@ param(
     [string]$CompanyName = $(if ($env:BC_COMPANY) { $env:BC_COMPANY } else { "docs-test" }),
 
     [string]$CustomerNo = "",
+    [string]$VendorNo = "",
     [string]$ItemNo = "",
 
     [int]$SalesOrders = 10,
+    [int]$PurchaseOrders = 0,
     [int]$LinesPerDoc = 3,
     [int]$Threads = 1,
     [int]$RetryCount = 3,
@@ -89,7 +95,7 @@ Write-Host "Resolved: $CompanyName -> $companyId" -ForegroundColor Green
 Write-Host ""
 
 $customApi   = "$bcRoot/api/defaultpublisher/docloadtest/v1.0/companies($companyId)"
-$stagingUrl  = "$customApi/soStagingLinesLT"
+$stagingUrl  = "$customApi/docStagingLinesLT"
 
 # ─────────────────────────── Helpers ───────────────────────────
 
@@ -172,6 +178,19 @@ function Get-TestCustomer {
     exit 1
 }
 
+function Get-TestVendor {
+    if ($VendorNo) { return $VendorNo }
+    Write-Host "Looking up first vendor..." -ForegroundColor Yellow
+    $resp = Invoke-BCApi -Method GET -Url "$apiBase/companies($companyId)/vendors?`$top=1&`$select=number"
+    if ($resp.Success -and $resp.Data.value.Count -gt 0) {
+        $no = $resp.Data.value[0].number
+        Write-Host "  Using vendor: $no" -ForegroundColor Green
+        return $no
+    }
+    Write-Host "ERROR: No vendors found." -ForegroundColor Red
+    exit 1
+}
+
 function Get-TestItem {
     if ($ItemNo) { return $ItemNo }
     Write-Host "Looking up first item..." -ForegroundColor Yellow
@@ -209,6 +228,7 @@ function Start-Validate {
         $body = @{
             batchId                = $testBatchId
             documentGroupId        = $docGroupId
+            documentType           = "Sales Order"
             customerNumber         = $custNo
             orderDate              = $orderDate
             externalDocumentNumber = $testBatchId
@@ -248,18 +268,30 @@ function Start-Validate {
     }
 
     Write-Host ""
-    Write-Host "Next step: Run the SO Staging Processor codeunit in BC to create the Sales Order from these staged lines." -ForegroundColor Yellow
+    Write-Host "Next step: Run the Doc Staging Processor in BC to create documents from these staged lines." -ForegroundColor Yellow
 }
 
 # ─────────────────────────── Load Mode ───────────────────────────
 
 function Start-Load {
-    $totalRows = $SalesOrders * $LinesPerDoc
-    Write-Host "=== LOAD MODE ($SalesOrders SOs x $LinesPerDoc lines = $totalRows rows, $Threads thread(s)) ===" -ForegroundColor Cyan
+    $totalDocs = $SalesOrders + $PurchaseOrders
+    if ($totalDocs -eq 0) {
+        Write-Host "ERROR: Specify -SalesOrders and/or -PurchaseOrders (both are 0)." -ForegroundColor Red
+        exit 1
+    }
+    $totalRows = $totalDocs * $LinesPerDoc
+    $docParts = @()
+    if ($SalesOrders -gt 0) { $docParts += "$SalesOrders SOs" }
+    if ($PurchaseOrders -gt 0) { $docParts += "$PurchaseOrders POs" }
+    $docLabel = $docParts -join " + "
+    Write-Host "=== LOAD MODE ($docLabel x $LinesPerDoc lines = $totalRows rows, $Threads thread(s)) ===" -ForegroundColor Cyan
     Write-Host ""
 
-    $custNo = Get-TestCustomer
-    $itmNo  = Get-TestItem
+    $itmNo = Get-TestItem
+    $custNo = $null
+    $vendNo = $null
+    if ($SalesOrders -gt 0) { $custNo = Get-TestCustomer }
+    if ($PurchaseOrders -gt 0) { $vendNo = Get-TestVendor }
     $loadBatchId = if ($BatchId) { $BatchId } else { "LT-" + (Get-Date -Format "yyyyMMdd-HHmmss") }
     $orderDate = Get-Date -Format "yyyy-MM-dd"
 
@@ -277,6 +309,7 @@ function Start-Load {
             $row = @{
                 batchId                = $loadBatchId
                 documentGroupId        = $docGroupId
+                documentType           = "Sales Order"
                 customerNumber         = $custNo
                 orderDate              = $orderDate
                 externalDocumentNumber = $loadBatchId
@@ -288,6 +321,26 @@ function Start-Load {
             $allRows.Add(($row | ConvertTo-Json -Depth 5 -Compress))
         }
     }
+
+    for ($po = 1; $po -le $PurchaseOrders; $po++) {
+        $docGroupId = "$loadBatchId-PO-$($po.ToString().PadLeft(5, '0'))"
+        for ($line = 1; $line -le $LinesPerDoc; $line++) {
+            $row = @{
+                batchId                = $loadBatchId
+                documentGroupId        = $docGroupId
+                documentType           = "Purchase Order"
+                vendorNumber           = $vendNo
+                orderDate              = $orderDate
+                externalDocumentNumber = $loadBatchId
+                lineType               = "Item"
+                itemNumber             = $itmNo
+                quantity               = 1
+                directUnitCost         = 75
+            }
+            $allRows.Add(($row | ConvertTo-Json -Depth 5 -Compress))
+        }
+    }
+
     Write-Host "  Generated $($allRows.Count) rows." -ForegroundColor Green
     Write-Host ""
 
@@ -335,16 +388,25 @@ function Start-Load {
             $threadRows = $allRows[$sliceStart..$sliceEnd]
             Write-Host ('  Thread ' + $t + ': ' + $threadRows.Count + ' rows') -ForegroundColor Gray
 
+            # Serialize rows as newline-joined string to avoid array unrolling in Start-Job
+            $rowsJoined = $threadRows -join "`n"
+
             $jobs += Start-Job -ScriptBlock {
-                param($rows, $url, $hdrs, $maxRetries, $retryDelay)
+                param($rowsString, $url, $authToken, $maxRetries, $retryDelay)
                 $ErrorActionPreference = "Stop"
+                $rows = $rowsString -split "`n"
+                $hdrs = @{
+                    "Authorization" = "Bearer $authToken"
+                    "Content-Type"  = "application/json"
+                    "Accept"        = "application/json"
+                }
                 $success = 0; $errors = 0; $rateLimits = 0; $totalMs = 0
 
                 foreach ($jsonRow in $rows) {
                     for ($attempt = 0; $attempt -le $maxRetries; $attempt++) {
                         try {
                             $sw = [System.Diagnostics.Stopwatch]::StartNew()
-                            Invoke-RestMethod -Uri $url -Method POST -Headers $hdrs -Body $jsonRow -TimeoutSec 30 | Out-Null
+                            Invoke-RestMethod -Uri $url -Method POST -Headers $hdrs -Body $jsonRow -ContentType "application/json" -TimeoutSec 30 | Out-Null
                             $sw.Stop()
                             $success++
                             $totalMs += $sw.ElapsedMilliseconds
@@ -375,25 +437,38 @@ function Start-Load {
                     RateLimits = $rateLimits
                     AvgMs      = if ($success -gt 0) { [math]::Round($totalMs / $success) } else { 0 }
                 }
-            } -ArgumentList @($threadRows, $stagingUrl, $headers, $RetryCount, $RetryDelaySeconds)
+            } -ArgumentList $rowsJoined, $stagingUrl, $token, $RetryCount, $RetryDelaySeconds
         }
 
         Write-Host ""
         Write-Host "Waiting for $($jobs.Count) threads..." -ForegroundColor Yellow
 
-        # Progress polling
-        while ($jobs | Where-Object { $_.State -eq 'Running' }) {
+        # Progress polling — detect Failed/Stopped jobs to avoid infinite wait
+        while ($jobs | Where-Object { $_.State -notin 'Completed', 'Failed', 'Stopped' }) {
             Start-Sleep -Milliseconds 1000
             $elapsed = [math]::Round(((Get-Date) - $overallStart).TotalSeconds, 1)
-            Write-Host "  ${elapsed}s elapsed — $($jobs | Where-Object { $_.State -eq 'Completed' } | Measure-Object | Select-Object -Expand Count)/$($jobs.Count) threads done" -ForegroundColor Gray
+            $doneCount = ($jobs | Where-Object { $_.State -eq 'Completed' } | Measure-Object).Count
+            $failCount = ($jobs | Where-Object { $_.State -eq 'Failed' } | Measure-Object).Count
+            $status = "$doneCount/$($jobs.Count) threads done"
+            if ($failCount -gt 0) { $status += ", $failCount failed" }
+            Write-Host "  ${elapsed}s elapsed — $status" -ForegroundColor Gray
         }
 
-        $threadResults = $jobs | Wait-Job | Receive-Job
-        $jobs | Remove-Job
+        # Report any failed jobs
+        $failedJobs = @($jobs | Where-Object { $_.State -eq 'Failed' })
+        foreach ($fj in $failedJobs) {
+            Write-Host "  Thread FAILED: $($fj.ChildJobs[0].JobStateInfo.Reason.Message)" -ForegroundColor Red
+        }
+
+        $completedJobs = @($jobs | Where-Object { $_.State -eq 'Completed' })
+        $threadResults = $completedJobs | Receive-Job
+        $jobs | Remove-Job -Force
 
         $successCount = ($threadResults | Measure-Object -Property Success -Sum).Sum
         $errorCount   = ($threadResults | Measure-Object -Property Errors -Sum).Sum
         $rateLimits   = ($threadResults | Measure-Object -Property RateLimits -Sum).Sum
+        # Count failed jobs as errors
+        $errorCount += $failedJobs.Count
     }
 
     $overallEnd = Get-Date
@@ -409,9 +484,9 @@ function Start-Load {
     Write-Host "Rate Limits: $rateLimits" -ForegroundColor $(if ($rateLimits -gt 0) { 'Yellow' } else { 'Green' })
     Write-Host "Throughput:  $throughput rows/sec" -ForegroundColor Magenta
     Write-Host ""
-    Write-Host "SOs Staged:  $SalesOrders (with $LinesPerDoc lines each)" -ForegroundColor Gray
+    Write-Host "Documents:   $docLabel (with $LinesPerDoc lines each)" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "Next step: Run the SO Staging Processor codeunit in BC to create Sales Orders from batch '$loadBatchId'." -ForegroundColor Yellow
+    Write-Host "Next step: Run the Doc Staging Processor in BC to create documents from batch '$loadBatchId'." -ForegroundColor Yellow
 
     # Save results
     $resultsDir = Join-Path $PSScriptRoot ".." "results"
@@ -419,17 +494,18 @@ function Start-Load {
     $timestamp   = Get-Date -Format "yyyyMMdd-HHmmss"
     $summaryFile = Join-Path $resultsDir "staging-$timestamp.csv"
     [PSCustomObject]@{
-        Timestamp    = $overallStart.ToString("yyyy-MM-dd HH:mm:ss")
-        Duration_Sec = [math]::Round($duration, 2)
-        BatchId      = $loadBatchId
-        SalesOrders  = $SalesOrders
-        LinesPerDoc  = $LinesPerDoc
-        TotalRows    = $totalRows
-        RowsLoaded   = $successCount
-        Errors       = $errorCount
-        RateLimits   = $rateLimits
-        Throughput   = $throughput
-        Threads      = $Threads
+        Timestamp      = $overallStart.ToString("yyyy-MM-dd HH:mm:ss")
+        Duration_Sec   = [math]::Round($duration, 2)
+        BatchId        = $loadBatchId
+        SalesOrders    = $SalesOrders
+        PurchaseOrders = $PurchaseOrders
+        LinesPerDoc    = $LinesPerDoc
+        TotalRows      = $totalRows
+        RowsLoaded     = $successCount
+        Errors         = $errorCount
+        RateLimits     = $rateLimits
+        Throughput     = $throughput
+        Threads        = $Threads
     } | Export-Csv -Path $summaryFile -NoTypeInformation
     Write-Host "Summary saved: $summaryFile" -ForegroundColor Gray
     Write-Host ""
@@ -448,7 +524,7 @@ function Start-Status {
 
     # Get all rows for this batch
     $allRows = @()
-    $nextLink = "$stagingUrl?`$filter=batchId eq '$BatchId'&`$select=entryNo,documentGroupId,status,errorMessage,createdSONumber,retryCount"
+    $nextLink = "$stagingUrl?`$filter=batchId eq '$BatchId'&`$select=entryNo,documentGroupId,documentType,status,errorMessage,createdDocNumber,retryCount"
     while ($nextLink) {
         $resp = Invoke-BCApi -Method GET -Url $nextLink
         if (-not $resp.Success) {
@@ -482,8 +558,12 @@ function Start-Status {
     # Document groups
     $docGroups = $allRows | Group-Object -Property documentGroupId
     Write-Host "Document Groups: $($docGroups.Count)" -ForegroundColor White
-    $completedSOs = ($allRows | Where-Object { $_.status -eq "Completed" -and $_.createdSONumber } | Select-Object -Property createdSONumber -Unique).Count
-    Write-Host "SOs Created: $completedSOs" -ForegroundColor Green
+    $completedDocs = ($allRows | Where-Object { $_.status -eq "Completed" -and $_.createdDocNumber } | Select-Object -Property createdDocNumber -Unique).Count
+    Write-Host "Docs Created: $completedDocs" -ForegroundColor Green
+    $soGroups = ($allRows | Where-Object { $_.documentType -eq "Sales Order" } | Select-Object -Property documentGroupId -Unique | Measure-Object).Count
+    $poGroups = ($allRows | Where-Object { $_.documentType -eq "Purchase Order" } | Select-Object -Property documentGroupId -Unique | Measure-Object).Count
+    if ($soGroups -gt 0) { Write-Host "  Sales Orders: $soGroups groups" -ForegroundColor Gray }
+    if ($poGroups -gt 0) { Write-Host "  Purchase Orders: $poGroups groups" -ForegroundColor Gray }
     Write-Host ""
 
     # Show errors if any

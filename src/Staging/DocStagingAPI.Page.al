@@ -1,14 +1,14 @@
 namespace DefaultPublisher.docloadtest;
 
-page 50118 "SO Staging API"
+page 50118 "Doc Staging API"
 {
     PageType = API;
     APIPublisher = 'defaultpublisher';
     APIGroup = 'docloadtest';
     APIVersion = 'v1.0';
-    EntityName = 'soStagingLineLT';
-    EntitySetName = 'soStagingLinesLT';
-    SourceTable = "SO Staging Line";
+    EntityName = 'docStagingLineLT';
+    EntitySetName = 'docStagingLinesLT';
+    SourceTable = "Doc Staging Line";
     DelayedInsert = true;
     ODataKeyFields = SystemId;
     Extensible = false;
@@ -37,9 +37,17 @@ page 50118 "SO Staging API"
                 {
                     Caption = 'documentGroupId';
                 }
+                field(documentType; Rec."Document Type")
+                {
+                    Caption = 'documentType';
+                }
                 field(customerNumber; Rec."Customer No.")
                 {
                     Caption = 'customerNumber';
+                }
+                field(vendorNumber; Rec."Vendor No.")
+                {
+                    Caption = 'vendorNumber';
                 }
                 field(orderDate; Rec."Order Date")
                 {
@@ -73,6 +81,10 @@ page 50118 "SO Staging API"
                 {
                     Caption = 'unitPrice';
                 }
+                field(directUnitCost; Rec."Direct Unit Cost")
+                {
+                    Caption = 'directUnitCost';
+                }
                 field(locationCode; Rec."Location Code")
                 {
                     Caption = 'locationCode';
@@ -92,9 +104,9 @@ page 50118 "SO Staging API"
                     Caption = 'retryCount';
                     Editable = false;
                 }
-                field(createdSONumber; Rec."Created SO No.")
+                field(createdDocNumber; Rec."Created Doc No.")
                 {
-                    Caption = 'createdSONumber';
+                    Caption = 'createdDocNumber';
                     Editable = false;
                 }
                 field(receivedAt; Rec."Received At")

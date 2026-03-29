@@ -25,8 +25,9 @@ permissionset 50100 "Doc Load Test"
         page "SO Lines Deep Insert API" = X,
         page "PO Deep Insert API" = X,
         page "PO Lines Deep Insert API" = X,
-        table "SO Staging Line" = X,
-        tabledata "SO Staging Line" = RMID,
-        page "SO Staging API" = X,
-        codeunit "SO Staging Processor" = X;
+        table "Doc Staging Line" = X,
+        tabledata "Doc Staging Line" = RMID,
+        page "Doc Staging API" = X,
+        page "Doc Staging Lines" = X,
+        codeunit "Doc Staging Processor" = X;
 }

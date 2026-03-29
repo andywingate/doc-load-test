@@ -1,8 +1,8 @@
 namespace DefaultPublisher.docloadtest;
 
-table 50102 "SO Staging Line"
+table 50102 "Doc Staging Line"
 {
-    Caption = 'SO Staging Line';
+    Caption = 'Doc Staging Line';
     DataClassification = SystemMetadata;
 
     fields
@@ -20,19 +20,29 @@ table 50102 "SO Staging Line"
         {
             Caption = 'Document Group ID';
         }
+        field(12; "Document Type"; Option)
+        {
+            Caption = 'Document Type';
+            OptionCaption = 'Sales Order,Purchase Order';
+            OptionMembers = "Sales Order","Purchase Order";
+        }
         field(20; "Customer No."; Code[20])
         {
             Caption = 'Customer No.';
         }
-        field(21; "Order Date"; Date)
+        field(21; "Vendor No."; Code[20])
+        {
+            Caption = 'Vendor No.';
+        }
+        field(22; "Order Date"; Date)
         {
             Caption = 'Order Date';
         }
-        field(22; "Posting Date"; Date)
+        field(23; "Posting Date"; Date)
         {
             Caption = 'Posting Date';
         }
-        field(23; "External Document No."; Code[35])
+        field(24; "External Document No."; Code[35])
         {
             Caption = 'External Document No.';
         }
@@ -60,6 +70,11 @@ table 50102 "SO Staging Line"
             Caption = 'Unit Price';
             DecimalPlaces = 2 : 5;
         }
+        field(35; "Direct Unit Cost"; Decimal)
+        {
+            Caption = 'Direct Unit Cost';
+            DecimalPlaces = 2 : 5;
+        }
         field(40; "Location Code"; Code[10])
         {
             Caption = 'Location Code';
@@ -85,9 +100,9 @@ table 50102 "SO Staging Line"
             Caption = 'Max Retries';
             InitValue = 3;
         }
-        field(60; "Created SO No."; Code[20])
+        field(60; "Created Doc No."; Code[20])
         {
-            Caption = 'Created SO No.';
+            Caption = 'Created Doc No.';
         }
         field(70; "Received At"; DateTime)
         {
@@ -116,6 +131,5 @@ table 50102 "SO Staging Line"
     trigger OnInsert()
     begin
         Rec."Received At" := CurrentDateTime();
-        if Rec."Status" = Rec."Status"::Pending then; // default is fine
     end;
 }
