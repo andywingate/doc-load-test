@@ -27,7 +27,6 @@ param(
 
     [string]$TenantId = $env:BC_TENANT_ID,
     [string]$ClientId = $env:BC_CLIENT_ID,
-    [Parameter(Mandatory=$true)]
     [string]$ClientSecret = $env:BC_CLIENT_SECRET,
     [string]$Environment = $(if ($env:BC_ENVIRONMENT) { $env:BC_ENVIRONMENT } else { "Production" }),
     [string]$CompanyName = $(if ($env:BC_COMPANY) { $env:BC_COMPANY } else { "docs-test" }),
