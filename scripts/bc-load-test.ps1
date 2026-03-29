@@ -736,12 +736,14 @@ function Start-SprintTest {
                     $sw = [System.Diagnostics.Stopwatch]::StartNew()
                     
                     # Create Sales Order with deep insert
+                    # unitPrice is set before quantity so it overrides the price engine
+                    # before BC calculates the line amount (DelayedInsert field order matters)
                     $lineItems = @(1..$Lines | ForEach-Object {
-                        @{
+                        [ordered]@{
                             itemNumber = $ItmNo
                             lineType = "Item"
-                            quantity = 1
                             unitPrice = 100
+                            quantity = 1
                         }
                     })
                     $soBody = @{

@@ -1,0 +1,47 @@
+[
+  {
+    "Date": "2026-03-29 10:17",
+    "Type": "Sprint",
+    "Method": "Single-App",
+    "TotalDocs": 639,
+    "Throughput": 10.38,
+    "Duration": "60s",
+    "Report": "sprint-report-20260329-101755.html"
+  },
+  {
+    "Date": "2026-03-29 02:08",
+    "Type": "Endurance",
+    "Method": "Deep Insert",
+    "TotalDocs": 10318,
+    "Throughput": 1.43,
+    "Duration": "120m",
+    "Report": "deepinsert-endurance-20260329-000835.html"
+  },
+  {
+    "Date": "2026-03-28 23:43",
+    "Type": "Deep Insert",
+    "Method": "Deep Insert",
+    "TotalDocs": 418,
+    "Throughput": 3.48,
+    "Duration": "2m",
+    "Report": "deepinsert-endurance-20260328-234317.html"
+  },
+  {
+    "Date": "2026-03-28 23:12",
+    "Type": "Deep Insert",
+    "Method": "Deep Insert",
+    "TotalDocs": 406,
+    "Throughput": 3.38,
+    "Duration": "2m",
+    "Report": "deepinsert-report-20260328-231201.html"
+  },
+  {
+    "Date": "2026-03-28 09:17",
+    "Type": "Endurance",
+    "Method": "Traditional",
+    "TotalDocs": 11019,
+    "Throughput": 1.53,
+    "Duration": "120m",
+    "Report": "endurance-report-20260328-091741.html"
+  }
+]

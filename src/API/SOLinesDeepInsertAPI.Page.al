@@ -57,11 +57,6 @@ page 50115 "SO Lines Deep Insert API"
                 field(unitPrice; Rec."Unit Price")
                 {
                     Caption = 'unitPrice';
-                    trigger OnValidate()
-                    begin
-                        PriceOverride := Rec."Unit Price";
-                        PriceOverrideSet := true;
-                    end;
                 }
                 field(amount; Rec."Line Amount")
                 {
@@ -75,14 +70,5 @@ page 50115 "SO Lines Deep Insert API"
     trigger OnInsertRecord(BelowxRec: Boolean): Boolean
     begin
         Rec.Validate("Document Type", Rec."Document Type"::Order);
-        if PriceOverrideSet then begin
-            Rec."Unit Price" := PriceOverride;
-            Rec."Allow Invoice Disc." := false;
-            Rec.Validate("Line Discount %" , 0);
-        end;
     end;
-
-    var
-        PriceOverride: Decimal;
-        PriceOverrideSet: Boolean;
 }
