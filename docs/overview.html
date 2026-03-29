@@ -299,11 +299,6 @@
         </div>
 
         <div class="chart-container">
-            <div class="chart-title">⚡ Performance Comparison</div>
-            <canvas id="performanceChart"></canvas>
-        </div>
-
-        <div class="chart-container">
             <div class="chart-title">🔄 Test Method Distribution</div>
             <canvas id="methodChart"></canvas>
         </div>
@@ -393,56 +388,6 @@
                     y: {
                         beginAtZero: true,
                         title: { display: true, text: 'Total Documents' }
-                    }
-                }
-            }
-        });
-
-        // Performance comparison chart
-        const performanceCtx = document.getElementById('performanceChart').getContext('2d');
-        new Chart(performanceCtx, {
-            type: 'radar',
-            data: {
-                labels: ['Throughput', 'Documents', 'Duration', 'Concurrency', 'API Efficiency'],
-                datasets: [{
-                    label: 'Traditional Endurance',
-                    data: [1.5, 11.0, 120, 1, 1],
-                    backgroundColor: 'rgba(52, 152, 219, 0.2)',
-                    borderColor: '#3498db',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#3498db'
-                }, {
-                    label: 'Deep Insert',
-                    data: [3.4, 0.4, 2, 1, 4],
-                    backgroundColor: 'rgba(39, 174, 96, 0.2)',
-                    borderColor: '#27ae60',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#27ae60'
-                }, {
-                    label: 'Sprint (Concurrent)',
-                    data: [10.4, 0.6, 1, 10, 4],
-                    backgroundColor: 'rgba(240, 147, 251, 0.2)',
-                    borderColor: '#f093fb',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#f093fb'
-                }, {
-                    label: 'Multi-App Sprint',
-                    data: [11.7, 0.7, 1, 10, 4],
-                    backgroundColor: 'rgba(155, 89, 182, 0.2)',
-                    borderColor: '#9b59b6',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#9b59b6'
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { position: 'top' }
-                },
-                scales: {
-                    r: {
-                        beginAtZero: true,
-                        max: 12
                     }
                 }
             }
