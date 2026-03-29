@@ -200,6 +200,51 @@
                 <h2 class="section-title">📊 Test Reports</h2>
                 
                 <div class="report-grid">
+                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-125404.html'">
+                        <h3>🧵 SO Thread Scaling — 5 Threads (Baseline)</h3>
+                        <div class="date">📅 2026-03-29 12:54 (62 seconds)</div>
+                        <div class="stats">
+                            <div class="stat"><div class="label">SO Documents</div><div class="value">127</div></div>
+                            <div class="stat"><div class="label">SO Throughput</div><div class="value" style="color:#e67e22;">2.05/s</div></div>
+                            <div class="stat"><div class="label">Threads</div><div class="value">5</div></div>
+                            <div class="stat"><div class="label">Success</div><div class="value" style="color:#27ae60;">100%</div></div>
+                        </div>
+                        <div class="description">
+                            No Series study — baseline confirmation. 5 threads, 1 app = 2.05/s. Completes the thread scaling trilogy: throughput is ~2 docs/sec regardless of concurrency.
+                        </div>
+                        <a href="sprint-report-20260329-125404.html" class="view-button">View Full Report →</a>
+                    </div>
+
+                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-125147.html'">
+                        <h3>🧵 SO Thread Scaling — 10 Threads (2 Apps)</h3>
+                        <div class="date">📅 2026-03-29 12:51 (64 seconds)</div>
+                        <div class="stats">
+                            <div class="stat"><div class="label">SO Documents</div><div class="value">130</div></div>
+                            <div class="stat"><div class="label">SO Throughput</div><div class="value" style="color:#e67e22;">2.02/s</div></div>
+                            <div class="stat"><div class="label">Threads</div><div class="value">10</div></div>
+                            <div class="stat"><div class="label">Success</div><div class="value" style="color:#27ae60;">100%</div></div>
+                        </div>
+                        <div class="description">
+                            No Series study — 10 threads across 2 apps. Response doubled to 4,694ms but throughput unchanged at 2.02/s. BC backend still the bottleneck.
+                        </div>
+                        <a href="sprint-report-20260329-125147.html" class="view-button">View Full Report →</a>
+                    </div>
+
+                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-124937.html'">
+                        <h3>🧵 SO Thread Scaling — 15 Threads (3 Apps)</h3>
+                        <div class="date">📅 2026-03-29 12:49 (67 seconds)</div>
+                        <div class="stats">
+                            <div class="stat"><div class="label">SO Documents</div><div class="value">134</div></div>
+                            <div class="stat"><div class="label">SO Throughput</div><div class="value" style="color:#e67e22;">1.99/s</div></div>
+                            <div class="stat"><div class="label">Threads</div><div class="value">15</div></div>
+                            <div class="stat"><div class="label">Success</div><div class="value" style="color:#27ae60;">100%</div></div>
+                        </div>
+                        <div class="description">
+                            No Series study — 15 threads across 3 apps. Response jumped to 6,950ms, throughput still ~2/s. Confirms SO ceiling is BC backend, not thread count.
+                        </div>
+                        <a href="sprint-report-20260329-124937.html" class="view-button">View Full Report →</a>
+                    </div>
+
                     <div class="report-card" onclick="window.location.href='sprint-report-20260329-121210.html'">
                         <h3>🏗️ SO Scale Test (3 Apps × 5 Threads)</h3>
                         <div class="date">📅 2026-03-29 12:12 (67 seconds)</div>
