@@ -186,6 +186,10 @@
 
         <h3>Official Rate Limit Specifications</h3>
         
+        <p style="margin-bottom: 1rem; color: #555;">
+            These are <strong>per-user limits</strong> that apply to each user or service principal (Entra app identity). Microsoft introduced these per-user limits in December 2023 to replace the previous per-environment limits, enabling better throughput scaling with multiple identities.
+        </p>
+        
         <table>
             <thead>
                 <tr>
@@ -197,34 +201,38 @@
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>Requests per Entra App</strong></td>
+                    <td><strong>Request Rate (per user/service principal)</strong></td>
                     <td>6,000 requests</td>
-                    <td>5 minutes</td>
+                    <td>5-minute sliding window</td>
                     <td>429 Too Many Requests</td>
                 </tr>
                 <tr>
-                    <td><strong>Requests per User</strong></td>
-                    <td>6,000 requests</td>
-                    <td>5 minutes</td>
-                    <td>429 Too Many Requests</td>
-                </tr>
-                <tr>
-                    <td><strong>Execution Time Limit</strong></td>
-                    <td>10 minutes</td>
-                    <td>Per request</td>
-                    <td>504 Gateway Timeout</td>
-                </tr>
-                <tr>
-                    <td><strong>Concurrent Connections</strong></td>
-                    <td>~100-200<br/><em>(soft limit, varies)</em></td>
-                    <td>Instantaneous</td>
+                    <td><strong>Max Concurrent Requests</strong></td>
+                    <td>5 per user</td>
+                    <td>Simultaneous</td>
                     <td>503 Service Unavailable</td>
+                </tr>
+                <tr>
+                    <td><strong>Max Connections</strong></td>
+                    <td>100 per user</td>
+                    <td>Simultaneous (processed + queued)</td>
+                    <td>429 Too Many Requests</td>
+                </tr>
+                <tr>
+                    <td><strong>Operation Timeout</strong></td>
+                    <td>8 minutes</td>
+                    <td>Per request</td>
+                    <td>408 Request Timeout</td>
                 </tr>
             </tbody>
         </table>
 
+        <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+            <strong>Source:</strong> <a href="https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/administration/operational-limits-online#odata-request-limits-per-user" target="_blank">Microsoft Learn - Operational Limits for Business Central Online (OData per-user limits)</a>
+        </p>
+
         <div class="highlight-box">
-            <strong>⚠️ Key Insight:</strong> The 6,000 requests per 5-minute window translates to a theoretical maximum of <strong>20 requests/second per Entra app</strong>. However, burst capacity allows for higher short-term throughput.
+            <strong>⚠️ Key Insight:</strong> The 6,000 requests per 5-minute sliding window translates to a theoretical maximum of <strong>20 requests/second per user/service principal</strong>. These are <strong>per-user limits</strong> - each Entra app identity (service principal) gets its own 6,000 req/5min bucket. This is why multi-app architecture scales linearly.
         </div>
 
         <h2>🧮 Theoretical Throughput Calculations</h2>
