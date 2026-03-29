@@ -722,13 +722,17 @@ function Start-SprintTest {
     }
     $totalThreads = $soThreads + $poThreads
 
+    # Temp dir for live per-request status counts (one file per thread, no locking needed)
+    $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) "bc-sprint-$batchId"
+    New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
+
     Write-Host "Launching threads: $soThreads SO + $poThreads PO = $totalThreads total" -ForegroundColor Yellow
     Write-Host ""
 
     # Launch SO threads
     for ($j = 1; $j -le $soThreads; $j++) {
         $jobs += Start-Job -ScriptBlock {
-            param($BcRoot, $CompanyId, $CustNo, $ItmNo, $Lines, $Token, $JobNum, $Deadline, $DocType, $BatchId)
+            param($BcRoot, $CompanyId, $CustNo, $ItmNo, $Lines, $Token, $JobNum, $Deadline, $DocType, $BatchId, $TmpDir)
 
             $headers = @{
                 "Authorization" = "Bearer $Token"
@@ -738,8 +742,11 @@ function Start-SprintTest {
             $customApi = "$BcRoot/api/defaultpublisher/docloadtest/v1.0/companies($CompanyId)"
             $success = 0; $errors = 0; $rateLimits = 0
             $times = @()
+            $requests = [System.Collections.Generic.List[object]]::new()
+            $tmpFile = Join-Path $TmpDir "SO-T$JobNum.txt"
 
             while ((Get-Date) -lt $Deadline) {
+                $ts = Get-Date -Format "HH:mm:ss.fff"
                 try {
                     $sw = [System.Diagnostics.Stopwatch]::StartNew()
                     
@@ -767,8 +774,11 @@ function Start-SprintTest {
                     $sw.Stop()
                     $times += $sw.ElapsedMilliseconds
                     $success++
+                    $requests.Add([PSCustomObject]@{ Timestamp = $ts; StatusCode = 200; ElapsedMs = $sw.ElapsedMilliseconds })
+                    Add-Content -Path $tmpFile -Value "200"
                     
                 } catch {
+                    $sw.Stop()
                     $errors++
                     $statusCode = 0
                     try { $statusCode = [int]$_.Exception.Response.StatusCode.value__ } catch { }
@@ -776,6 +786,8 @@ function Start-SprintTest {
                         $rateLimits++
                         Start-Sleep -Seconds 2
                     }
+                    $requests.Add([PSCustomObject]@{ Timestamp = $ts; StatusCode = $statusCode; ElapsedMs = $sw.ElapsedMilliseconds })
+                    Add-Content -Path $tmpFile -Value "$statusCode"
                 }
             }
 
@@ -787,14 +799,15 @@ function Start-SprintTest {
                 Errors = $errors
                 RateLimits = $rateLimits
                 AvgMs = [int]$avgTime
+                Requests = $requests
             }
-        } -ArgumentList $bcRoot, $companyId, $custNo, $itmNo, $LinesPerDoc, $tokenSO, $j, $deadline, "SO", $batchId
+        } -ArgumentList $bcRoot, $companyId, $custNo, $itmNo, $LinesPerDoc, $tokenSO, $j, $deadline, "SO", $batchId, $tmpDir
     }
 
     # Launch PO threads
     for ($j = 1; $j -le $poThreads; $j++) {
         $jobs += Start-Job -ScriptBlock {
-            param($BcRoot, $CompanyId, $VndNo, $ItmNo, $Lines, $Token, $JobNum, $Deadline, $DocType, $BatchId)
+            param($BcRoot, $CompanyId, $VndNo, $ItmNo, $Lines, $Token, $JobNum, $Deadline, $DocType, $BatchId, $TmpDir)
 
             $headers = @{
                 "Authorization" = "Bearer $Token"
@@ -804,8 +817,11 @@ function Start-SprintTest {
             $customApi = "$BcRoot/api/defaultpublisher/docloadtest/v1.0/companies($CompanyId)"
             $success = 0; $errors = 0; $rateLimits = 0
             $times = @()
+            $requests = [System.Collections.Generic.List[object]]::new()
+            $tmpFile = Join-Path $TmpDir "PO-T$JobNum.txt"
 
             while ((Get-Date) -lt $Deadline) {
+                $ts = Get-Date -Format "HH:mm:ss.fff"
                 try {
                     $sw = [System.Diagnostics.Stopwatch]::StartNew()
                     
@@ -830,8 +846,11 @@ function Start-SprintTest {
                     $sw.Stop()
                     $times += $sw.ElapsedMilliseconds
                     $success++
+                    $requests.Add([PSCustomObject]@{ Timestamp = $ts; StatusCode = 200; ElapsedMs = $sw.ElapsedMilliseconds })
+                    Add-Content -Path $tmpFile -Value "200"
                     
                 } catch {
+                    $sw.Stop()
                     $errors++
                     $statusCode = 0
                     try { $statusCode = [int]$_.Exception.Response.StatusCode.value__ } catch { }
@@ -839,6 +858,8 @@ function Start-SprintTest {
                         $rateLimits++
                         Start-Sleep -Seconds 2
                     }
+                    $requests.Add([PSCustomObject]@{ Timestamp = $ts; StatusCode = $statusCode; ElapsedMs = $sw.ElapsedMilliseconds })
+                    Add-Content -Path $tmpFile -Value "$statusCode"
                 }
             }
 
@@ -850,29 +871,49 @@ function Start-SprintTest {
                 Errors = $errors
                 RateLimits = $rateLimits
                 AvgMs = [int]$avgTime
+                Requests = $requests
             }
-        } -ArgumentList $bcRoot, $companyId, $vndNo, $itmNo, $LinesPerDoc, $tokenPO, $j, $deadline, "PO", $batchId
+        } -ArgumentList $bcRoot, $companyId, $vndNo, $itmNo, $LinesPerDoc, $tokenPO, $j, $deadline, "PO", $batchId, $tmpDir
     }
 
     Write-Host "All threads launched. Running full parallel sprint for $SprintDurationSeconds seconds..." -ForegroundColor Yellow
     Write-Host ""
     
-    # Wait for all jobs to complete with progress countdown (no API calls during sprint)
+    # Wait for all jobs to complete, printing a live status table every 2 seconds
     $progressStart = Get-Date
+    $lastPrint = [datetime]::MinValue
     while ((Get-Date) -lt $deadline -and ($jobs | Where-Object { $_.State -eq 'Running' }).Count -gt 0) {
-        $elapsed = ((Get-Date) - $progressStart).TotalSeconds
-        $remaining = ($deadline - (Get-Date)).TotalSeconds
-        if ($remaining -lt 0) { $remaining = 0 }
-        
-        $percentComplete = [math]::Min(100, [math]::Round(($elapsed / $SprintDurationSeconds) * 100))
-        $bar = "=" * [math]::Floor($percentComplete / 2)
-        $spaces = " " * (50 - [math]::Floor($percentComplete / 2))
-        
-        Write-Host "`r[$bar$spaces] $percentComplete% | $([math]::Floor($elapsed))s / $([math]::Floor($remaining))s remaining  " -NoNewline -ForegroundColor Cyan
+        $now = Get-Date
+        if (($now - $lastPrint).TotalSeconds -ge 2) {
+            $lastPrint = $now
+            $elapsed  = ($now - $progressStart).TotalSeconds
+            $remaining = [math]::Max(0, ($deadline - $now).TotalSeconds)
+            $remMin = [math]::Floor($remaining / 60)
+            $remSec = [math]::Floor($remaining % 60)
+
+            # Read all per-thread temp files and tally status codes
+            $counts = @{}
+            Get-ChildItem -Path $tmpDir -Filter '*.txt' -ErrorAction SilentlyContinue | ForEach-Object {
+                Get-Content $_.FullName -ErrorAction SilentlyContinue | ForEach-Object {
+                    $counts[$_] = ($counts[$_] -as [int]) + 1
+                }
+            }
+            $total = ($counts.Values | Measure-Object -Sum).Sum
+            $ok    = $counts['200'] -as [int]
+
+            Write-Host "--- $(Get-Date -Format 'HH:mm:ss') | Time left: ${remMin}m ${remSec}s ---" -ForegroundColor Cyan
+            Write-Host "  200 (OK) : $ok" -ForegroundColor Green
+            foreach ($code in $counts.Keys | Where-Object { $_ -ne '200' } | Sort-Object) {
+                Write-Host "  $code      : $($counts[$code])" -ForegroundColor Yellow
+            }
+            Write-Host "  Total    : $total" -ForegroundColor White
+            Write-Host ""
+        }
         Start-Sleep -Milliseconds 500
     }
-    Write-Host "" # New line after progress
     Write-Host ""
+    # Clean up temp dir
+    Remove-Item -Path $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
     
     $results = $jobs | Wait-Job | Receive-Job
     $jobs | Remove-Job
@@ -957,21 +998,23 @@ function Start-SprintTest {
     $summary | Export-Csv -Path $summaryFile -NoTypeInformation
     Write-Host "Summary saved: $summaryFile" -ForegroundColor Gray
 
-    # Detailed thread results CSV
+    # Detailed per-request CSV (one row per API call)
     $detailFile = Join-Path $resultsDir "sprint-detail-$timestamp.csv"
-    $details = @()
-    foreach ($r in $results | Sort-Object Job) {
-        $details += [PSCustomObject]@{
-            Thread = $r.Job
-            Type = $r.Type
-            Success = $r.Success
-            Errors = $r.Errors
-            RateLimits = $r.RateLimits
-            AvgMs = $r.AvgMs
-            Rate = [math]::Round($r.Success / $actualDuration, 2)
+    $details = [System.Collections.Generic.List[object]]::new()
+    foreach ($r in $results | Sort-Object { $_.Type }, { $_.Job }) {
+        foreach ($req in $r.Requests) {
+            $details.Add([PSCustomObject]@{
+                BatchId   = $batchId
+                Thread    = "$($r.Type)-T$($r.Job)"
+                Type      = $r.Type
+                Timestamp = $req.Timestamp
+                StatusCode = $req.StatusCode
+                ElapsedMs = $req.ElapsedMs
+                Success   = if ($req.StatusCode -eq 200) { 1 } else { 0 }
+            })
         }
     }
-    $details | Export-Csv -Path $detailFile -NoTypeInformation
+    $details | Sort-Object Timestamp | Export-Csv -Path $detailFile -NoTypeInformation
     Write-Host "Details saved: $detailFile" -ForegroundColor Gray
     Write-Host ""
 }

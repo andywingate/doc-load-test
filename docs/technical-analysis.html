@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Analysis - API Limits & Performance Math</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 2.5rem; 
+            border-radius: 12px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { 
+            color: #2c3e50; 
+            margin-bottom: 0.5rem; 
+            font-size: 2.5rem;
+            border-bottom: 4px solid #667eea;
+            padding-bottom: 1rem;
+        }
+        h2 {
+            color: #2c3e50;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+            border-left: 5px solid #667eea;
+            padding-left: 1rem;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-size: 1.4rem;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+        .back-button {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            background: #f8f9fa;
+        }
+        p {
+            line-height: 1.8;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+        .formula-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+        }
+        .highlight-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+        .danger-box {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        th {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .math {
+            font-style: italic;
+            color: #667eea;
+            font-weight: 600;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e74c3c;
+        }
+        .reference-links {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-radius: 4px;
+        }
+        .reference-links h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .reference-links ul {
+            margin-top: 1rem;
+        }
+        .reference-links li {
+            margin-bottom: 0.8rem;
+            line-height: 1.6;
+        }
+        .reference-links a {
+            color: #1976d2;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .reference-links a:hover {
+            text-decoration: underline;
+        }
+        ul, ol {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+        }
+        li {
+            margin-bottom: 0.5rem;
+            line-height: 1.6;
+        }
+        .empirical-results {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            padding: 2rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button">← Back to Reports</a>
+        <h1>🔬 Technical Analysis</h1>
+        <div class="subtitle">
+            Mathematical analysis of BC API limits, concurrency, and theoretical throughput maximums
+        </div>
+
+        <h2>📊 Business Central Cloud API Rate Limits</h2>
+        
+        <p>Microsoft enforces rate limiting on BC Cloud SaaS APIs to ensure service stability and fair resource allocation. Understanding these limits is critical for designing high-throughput integrations.</p>
+
+        <h3>Official Rate Limit Specifications</h3>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Limit Type</th>
+                    <th>Threshold</th>
+                    <th>Time Window</th>
+                    <th>HTTP Response</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Requests per Entra App</strong></td>
+                    <td>6,000 requests</td>
+                    <td>5 minutes</td>
+                    <td>429 Too Many Requests</td>
+                </tr>
+                <tr>
+                    <td><strong>Requests per User</strong></td>
+                    <td>6,000 requests</td>
+                    <td>5 minutes</td>
+                    <td>429 Too Many Requests</td>
+                </tr>
+                <tr>
+                    <td><strong>Execution Time Limit</strong></td>
+                    <td>10 minutes</td>
+                    <td>Per request</td>
+                    <td>504 Gateway Timeout</td>
+                </tr>
+                <tr>
+                    <td><strong>Concurrent Connections</strong></td>
+                    <td>~100-200<br/><em>(soft limit, varies)</em></td>
+                    <td>Instantaneous</td>
+                    <td>503 Service Unavailable</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="highlight-box">
+            <strong>⚠️ Key Insight:</strong> The 6,000 requests per 5-minute window translates to a theoretical maximum of <strong>20 requests/second per Entra app</strong>. However, burst capacity allows for higher short-term throughput.
+        </div>
+
+        <h2>🧮 Theoretical Throughput Calculations</h2>
+
+        <h3>Single Entra App - Traditional API</h3>
+        
+        <p>With the traditional API pattern (separate calls for header and lines), creating a single document with 3 lines requires:</p>
+        
+        <div class="formula-box">
+            1 POST (Sales/Purchase Order Header) +<br/>
+            3 POST (Individual lines) =<br/>
+            <strong>4 API calls per document</strong>
+        </div>
+
+        <p><strong>Maximum theoretical throughput:</strong></p>
+        
+        <div class="formula-box">
+            Max_Docs/Sec = (6000 requests / 300 sec) / 4 calls<br/>
+            Max_Docs/Sec = 20 / 4<br/>
+            <strong>Max_Docs/Sec = 5 docs/sec</strong>
+        </div>
+
+        <h3>Single Entra App - Deep Insert API</h3>
+        
+        <p>Deep Insert creates the header and all lines in a <strong>single API call</strong>:</p>
+        
+        <div class="formula-box">
+            1 POST (Header + 3 Lines in single payload) =<br/>
+            <strong>1 API call per document</strong><br/>
+            <strong>75% API call reduction vs traditional</strong>
+        </div>
+
+        <p><strong>Maximum theoretical throughput:</strong></p>
+        
+        <div class="formula-box">
+            Max_Docs/Sec = 6000 / 300<br/>
+            <strong>Max_Docs/Sec = 20 docs/sec</strong><br/>
+            <em>(4x improvement over traditional)</em>
+        </div>
+
+        <h3>Multiple Entra Apps - Parallel Scaling</h3>
+        
+        <p>Since rate limits apply <strong>per Entra application registration</strong>, using multiple apps scales linearly:</p>
+        
+        <div class="formula-box">
+            Max_Throughput = N_apps × 20 docs/sec<br/>
+            <br/>
+            With 2 apps: 40 docs/sec<br/>
+            With 5 apps: 100 docs/sec<br/>
+            With 10 apps: 200 docs/sec
+        </div>
+
+        <div class="success-box">
+            <strong>✅ Deep Insert + Multi-App Architecture</strong> is the optimal combination for maximum throughput while minimizing API consumption and staying within rate limits.
+        </div>
+
+        <h2>🚀 Concurrency & Threading Analysis</h2>
+
+        <h3>Thread Efficiency</h3>
+        
+        <p>Our test results reveal critical insights about thread scaling:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Configuration</th>
+                    <th>Threads</th>
+                    <th>Throughput</th>
+                    <th>Efficiency per Thread</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Single App, 10 threads</td>
+                    <td>10</td>
+                    <td>10.38 docs/sec</td>
+                    <td>1.04 docs/sec/thread</td>
+                </tr>
+                <tr>
+                    <td>Multi-App, 5+5 threads</td>
+                    <td>10</td>
+                    <td>11.77 docs/sec</td>
+                    <td>1.18 docs/sec/thread</td>
+                </tr>
+                <tr>
+                    <td>Multi-App, 10+5 threads</td>
+                    <td>15</td>
+                    <td>10.20 docs/sec</td>
+                    <td>0.68 docs/sec/thread</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="danger-box">
+            <strong>🔴 Bottleneck Identified:</strong> Doubling Sales Order threads from 5 to 10 (test #3) <strong>decreased</strong> throughput. This indicates a <strong>Sales Order processing bottleneck</strong> in BC's backend, not a rate limit issue.
+        </div>
+
+        <h3>Optimal Thread Configuration</h3>
+        
+        <p>Based on empirical results:</p>
+        
+        <ul>
+            <li><strong>5 SO threads + 5 PO threads</strong> = optimal balance</li>
+            <li><strong>Purchase Orders scale better</strong> than Sales Orders under load</li>
+            <li><strong>Multi-app architecture</strong> provides 13% throughput improvement over single-app</li>
+            <li>Beyond 10 total threads, diminishing returns occur due to BC backend constraints</li>
+        </ul>
+
+        <h2>📈 Empirical Test Results vs Theory</h2>
+
+        <div class="empirical-results">
+            <h3>What We Achieved</h3>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Theoretical Max</th>
+                        <th>Achieved</th>
+                        <th>Efficiency</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Single App Deep Insert</strong></td>
+                        <td>20 docs/sec</td>
+                        <td>10.38 docs/sec</td>
+                        <td>52%</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Multi-App (5+5)</strong></td>
+                        <td>40 docs/sec</td>
+                        <td>11.77 docs/sec</td>
+                        <td>29%</td>
+                    </tr>
+                    <tr>
+                        <td><strong>2-hour Endurance</strong></td>
+                        <td>20 docs/sec</td>
+                        <td>1.43 docs/sec</td>
+                        <td>7%</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p><strong>Analysis:</strong> We are achieving ~50% of theoretical maximum in sprint tests. The gap is explained by:</p>
+            <ul>
+                <li><strong>Network latency:</strong> ~200-500ms round-trip to BC Cloud</li>
+                <li><strong>OAuth token refresh:</strong> Periodic authentication overhead</li>
+                <li><strong>BC backend processing:</strong> Document validation, number series, posting logic</li>
+                <li><strong>Database contention:</strong> Locking, indexing, transaction log writes</li>
+            </ul>
+        </div>
+
+        <h2>💡 Optimization Strategies</h2>
+
+        <h3>1. Deep Insert Pattern (Implemented ✅)</h3>
+        <ul>
+            <li>Reduces API calls by 75%</li>
+            <li>Single atomic transaction per document</li>
+            <li>Lower network overhead</li>
+            <li>Achieved 10.38 docs/sec vs 1.53 traditional (6.8x improvement)</li>
+        </ul>
+
+        <h3>2. Multi-App Architecture (Implemented ✅)</h3>
+        <ul>
+            <li>Separate Entra apps for SO vs PO</li>
+            <li>Independent rate limit buckets</li>
+            <li>Reduced authentication contention</li>
+            <li>13% throughput improvement observed</li>
+        </ul>
+
+        <h3>3. Thread Pool Tuning</h3>
+        <ul>
+            <li>Use 5 SO threads + 5 PO threads as baseline</li>
+            <li>Monitor for 429 responses to detect rate limiting</li>
+            <li>Don't exceed 10-15 total threads without additional apps</li>
+            <li>Consider workload ratio (SO vs PO) when distributing threads</li>
+        </ul>
+
+        <h3>4. Connection Pooling & Keep-Alive</h3>
+        <ul>
+            <li>Reuse HTTP connections to reduce TCP handshake overhead</li>
+            <li>Keep OAuth tokens cached (1-hour lifetime)</li>
+            <li>Use persistent sessions where possible</li>
+        </ul>
+
+        <h3>5. Batch Operations (Future)</h3>
+        <ul>
+            <li>OData $batch endpoint allows multiple operations in single request</li>
+            <li>Potential for further API call reduction</li>
+            <li>Not yet tested in this study</li>
+        </ul>
+
+        <h2>🔗 Reference Materials</h2>
+
+        <div class="reference-links">
+            <h3>Microsoft Official Documentation</h3>
+            <ul>
+                <li><a href="https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/api-reference/v2.0/enabling-apis-for-dynamics-nav" target="_blank">Enabling APIs for Business Central</a> - API setup and authentication</li>
+                <li><a href="https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/administration/operational-limits-online" target="_blank">Operational Limits for Business Central Online</a> - Official rate limits and throttling policies</li>
+                <li><a href="https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/performance/performance-developer" target="_blank">Performance for Developers</a> - Performance best practices for BC development</li>
+                <li><a href="https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/developer/devenv-connect-apps-filtering" target="_blank">Working with OData API Queries</a> - Deep insert, filtering, and query optimization</li>
+                <li><a href="https://learn.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-client-creds-grant-flow" target="_blank">OAuth 2.0 Client Credentials Flow</a> - Service-to-service authentication</li>
+            </ul>
+
+            <h3>Community Resources</h3>
+            <ul>
+                <li><a href="https://duiliotacconi.com/" target="_blank">Duilio Tacconi's Blog</a> - Deep technical insights on BC performance, SQL optimization, and platform internals</li>
+                <li><a href="https://duiliotacconi.com/2025/10/08/dynamics-365-business-central-2025-wave-2-whats-new-in-performance/" target="_blank">BC 2025 Wave 2 Performance Features</a> - Latest performance improvements in v27</li>
+                <li><a href="https://duiliotacconi.com/2026/02/23/dynamics-365-business-central-online-wait-statistics-in-telemetry-the-ai-boost/" target="_blank">BC Online Wait Statistics in Telemetry</a> - Advanced performance analysis techniques</li>
+                <li><a href="https://github.com/andywingate/doc-load-test" target="_blank">This Project on GitHub</a> - Full source code, test scripts, and results</li>
+            </ul>
+
+            <h3>Related Topics</h3>
+            <ul>
+                <li><strong>OAuth Throttling:</strong> Entra ID enforces separate limits on token endpoint (~10,000 requests/5min)</li>
+                <li><strong>SQL Azure Limits:</strong> BC Cloud uses Azure SQL with DTU/vCore constraints that affect backend performance</li>
+                <li><strong>App Service Limits:</strong> BC runs on Azure App Service which has connection and memory limits</li>
+                <li><strong>Number Series Contention:</strong> High-concurrency document creation can cause locking on number series tables</li>
+            </ul>
+        </div>
+
+        <h2>🎯 Key Takeaways</h2>
+
+        <div class="success-box">
+            <ol>
+                <li><strong>Deep Insert is mandatory</strong> for high-throughput scenarios - 6.8x improvement over traditional API</li>
+                <li><strong>Rate limits are real</strong> but achievable with proper architecture (20 req/sec per app)</li>
+                <li><strong>Multi-app architecture</strong> scales linearly for extreme throughput requirements</li>
+                <li><strong>Optimal thread count is 10</strong> (5 SO + 5 PO) - more threads = diminishing returns</li>
+                <li><strong>Backend bottlenecks</strong> (not rate limits) constrain real-world performance to ~50% of theoretical max</li>
+                <li><strong>Sustained throughput</strong> (endurance) is lower than burst capacity due to backend resource management</li>
+            </ol>
+        </div>
+
+        <div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 2px solid #ecf0f1;">
+            <a href="index.html" class="back-button">← Back to Reports</a>
+            <a href="overview.html" class="back-button">📈 View Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>
