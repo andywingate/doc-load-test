@@ -325,39 +325,27 @@
             data: {
                 labels: ['Mar 28 09:17', 'Mar 28 23:12', 'Mar 28 23:43', 'Mar 29 00:08', 'Mar 29 10:17', 'Mar 29 10:40', 'Mar 29 10:50', 'Mar 29 11:14', 'Mar 29 11:47'],
                 datasets: [{
-                    label: 'Total Throughput',
-                    data: [1.53, 3.38, 3.48, 1.43, null, null, null, null, null],
-                    borderColor: '#667eea',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    tension: 0.3,
-                    fill: true,
-                    pointRadius: 6,
-                    pointBackgroundColor: '#667eea',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointHoverRadius: 8
-                }, {
                     label: 'SO Throughput',
-                    data: [null, null, null, null, 2.76, 2.61, 2.13, 2.13, 2.08],
+                    data: [0.38, 0.85, 0.87, 0.36, 2.76, 2.61, 2.13, 2.13, 2.08],
                     borderColor: '#3498db',
                     backgroundColor: 'rgba(52, 152, 219, 0.05)',
                     tension: 0.3,
                     fill: false,
-                    pointRadius: 5,
-                    pointBackgroundColor: '#3498db',
-                    pointBorderColor: '#fff',
+                    pointRadius: 6,
+                    pointBackgroundColor: ['transparent','transparent','transparent','transparent','#3498db','#3498db','#3498db','#3498db','#3498db'],
+                    pointBorderColor: '#3498db',
                     pointBorderWidth: 2,
                     borderDash: [5, 5]
                 }, {
                     label: 'PO Throughput',
-                    data: [null, null, null, null, 7.62, 9.16, 8.97, 8.07, null],
+                    data: [1.15, 2.53, 2.61, 1.07, 7.62, 9.16, 8.97, 8.07, null],
                     borderColor: '#27ae60',
                     backgroundColor: 'rgba(39, 174, 96, 0.05)',
                     tension: 0.3,
                     fill: false,
-                    pointRadius: 5,
-                    pointBackgroundColor: '#27ae60',
-                    pointBorderColor: '#fff',
+                    pointRadius: 6,
+                    pointBackgroundColor: ['transparent','transparent','transparent','transparent','#27ae60','#27ae60','#27ae60','#27ae60','transparent'],
+                    pointBorderColor: '#27ae60',
                     pointBorderWidth: 2,
                     borderDash: [5, 5]
                 }]
@@ -375,7 +363,9 @@
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return context.dataset.label + ': ' + (context.parsed.y ? context.parsed.y.toFixed(2) : 'N/A') + ' docs/sec';
+                                const estimated = context.dataIndex < 4;
+                                const suffix = estimated ? ' (est.)' : '';
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' docs/sec' + suffix;
                             }
                         }
                     }
