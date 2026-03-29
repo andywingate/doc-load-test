@@ -37,7 +37,6 @@ page 50114 "SO Deep Insert API"
                 field(number; Rec."No.")
                 {
                     Caption = 'number';
-                    Editable = false;
                 }
                 field(customerNumber; Rec."Sell-to Customer No.")
                 {

@@ -37,7 +37,6 @@ page 50116 "PO Deep Insert API"
                 field(number; Rec."No.")
                 {
                     Caption = 'number';
-                    Editable = false;
                 }
                 field(vendorNumber; Rec."Buy-from Vendor No.")
                 {

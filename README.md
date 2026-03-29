@@ -1,39 +1,83 @@
 # Document Load Test for Business Central
 
-A Business Central extension and PowerShell test harness for stress testing the BC API's ability to create and read Sales Orders and Purchase Orders at scale.
+A Business Central extension and PowerShell test harness for stress testing the BC Cloud SaaS API. Creates Sales Orders and Purchase Orders at scale using multiple strategies — from simple sequential inserts to multi-threaded deep insert sprints and staging table batch processing.
 
-## Overview
+## What You Can Do
 
-This project has two components:
+### Direct API Load Testing (`bc-load-test.ps1`)
 
-1. **AL Extension** — Custom API pages that expose Sales Order and Purchase Order creation with a batch ID field for filtering/cleanup. Also includes a BC-side UI for running tests directly from the client.
-2. **PowerShell Scripts** — External load test scripts that call the BC API to create and read documents, with support for sequential, concurrent, and read-only test modes.
+| Mode | Description |
+|---|---|
+| **Validate** | Quick smoke test — 1 SO + 1 PO to verify connectivity |
+| **Full** | Sequential creation of N documents |
+| **Read** | Read-only stress test — fetches existing documents |
+| **Concurrent** | Multi-threaded creation using PowerShell jobs |
+| **Race** | Time-boxed — creates as many documents as possible in N minutes |
+| **Endurance** | Long-running cyclic test — alternates SO/PO phases for hours |
+| **DeepInsert** | Race mode using deep insert API (header + lines in 1 call, ~75% fewer API calls) |
+| **Sprint** | Maximum throughput — multi-threading + deep insert + optional dual-app credentials |
+
+### Staging Table Batch Processing (`bc-staging-load.ps1`)
+
+Bulk-load Sales Order data into a flat staging table via a lightweight API page, then process into real Sales Orders server-side with error isolation and retry.
+
+| Mode | Description |
+|---|---|
+| **Validate** | Posts 1 test staging row to confirm API connectivity |
+| **Load** | Bulk-loads staging rows with multi-threading, then triggers server-side processing |
+| **Status** | Queries batch processing status and statistics |
+
+**Staging features**: Status tracking (Pending → Processing → Completed / Error), automatic retry with configurable max attempts, error message capture, batch statistics, created SO number stamped back to staging rows.
+
+### Dual-App Rate Limit Bypass
+
+For Sprint mode, configure two separate Entra app registrations so SO and PO threads get independent API rate limit quotas — up to 2x throughput vs single app.
+
+### Interactive Reports
+
+Test results are published as interactive HTML reports on GitHub Pages with:
+- Per-run throughput charts and timelines
+- Master overview dashboard with trends across all test runs
+- Technical analysis page with API rate limit math and throughput theory
+- Thread scaling studies (5/10/15 threads)
 
 ## Project Structure
 
 ```
-├── app.json                          # AL app manifest
+├── app.json                          # AL app manifest (v1.0.0.10)
 ├── src/
 │   ├── API/
-│   │   ├── SalesOrderLoadTestAPI.Page.al     # Custom SO API (page 50110)
-│   │   ├── SOLinesLoadTestAPI.Page.al        # Custom SO Lines sub-page (page 50112)
-│   │   ├── PurchaseOrderLoadTestAPI.Page.al  # Custom PO API (page 50111)
-│   │   └── POLinesLoadTestAPI.Page.al        # Custom PO Lines sub-page (page 50113)
+│   │   ├── SalesOrderLoadTestAPI.Page.al     # SO CRUD API (50110)
+│   │   ├── SOLinesLoadTestAPI.Page.al        # SO Lines sub-page (50112)
+│   │   ├── PurchaseOrderLoadTestAPI.Page.al  # PO CRUD API (50111)
+│   │   ├── POLinesLoadTestAPI.Page.al        # PO Lines sub-page (50113)
+│   │   ├── SalesOrderDeepInsertAPI.Page.al   # SO Deep Insert API (50114)
+│   │   ├── SOLinesDeepInsertAPI.Page.al      # SO Lines Deep Insert (50115)
+│   │   ├── PurchaseOrderDeepInsertAPI.Page.al # PO Deep Insert API (50116)
+│   │   └── POLinesDeepInsertAPI.Page.al      # PO Lines Deep Insert (50117)
+│   ├── Staging/
+│   │   ├── SOStagingLine.Table.al            # Staging table (50102)
+│   │   ├── SOStagingAPI.Page.al              # Staging API page (50118)
+│   │   └── SOStagingProcessor.Codeunit.al    # Server-side processor (50103)
 │   ├── Engine/
-│   │   ├── DocLoadTestEngine.Codeunit.al     # Core test engine (codeunit 50100)
-│   │   └── DocLoadTestDataGen.Codeunit.al    # Test data generation (codeunit 50101)
+│   │   ├── DocLoadTestEngine.Codeunit.al     # Core test engine (50100)
+│   │   ├── DocLoadTestDataGen.Codeunit.al    # Data generation (50101)
+│   │   └── SkipCreditLimitCheck.Codeunit.al  # Credit limit bypass (50102)
 │   ├── Setup/
-│   │   ├── DocLoadTestSetup.Table.al         # Configuration table (table 50100)
-│   │   └── DocLoadTestSetup.Page.al          # Configuration card (page 50100)
+│   │   ├── DocLoadTestSetup.Table.al         # Configuration table (50100)
+│   │   └── DocLoadTestSetup.Page.al          # Configuration card (50100)
 │   ├── Results/
-│   │   ├── DocLoadTestResult.Table.al        # Results log table (table 50101)
-│   │   ├── DocLoadTestResults.Page.al        # Results list (page 50101)
-│   │   └── DocLoadTestType.Enum.al           # Test type enum (enum 50100)
+│   │   ├── DocLoadTestResult.Table.al        # Results log (50101)
+│   │   ├── DocLoadTestResults.Page.al        # Results list (50101)
+│   │   └── DocLoadTestType.Enum.al           # Test type enum (50100)
 │   └── Permissions/
 │       └── DocLoadTest.PermissionSet.al      # Permission set (50100)
 ├── scripts/
 │   ├── bc-load-test.ps1                      # Main load test script
+│   ├── bc-staging-load.ps1                   # Staging table load script
 │   └── get-bc-token.ps1                      # OAuth2 token helper
+├── docs/                                     # GitHub Pages reports site
+└── results/                                  # Local CSV results (gitignored)
 ```
 
 ## Prerequisites
@@ -43,152 +87,95 @@ This project has two components:
   - A client secret
   - API permission: `https://api.businesscentral.dynamics.com/.default`
   - Registered in BC via **Microsoft Entra Application** card with appropriate permissions
-- PowerShell 7+ (for the external scripts)
+- PowerShell 7+
 - At least one customer, vendor, and item with valid posting groups configured
 
 ## Quick Start
 
 ### 1. Deploy the Extension
 
-Build the `.app` file (Ctrl+Shift+B in VS Code) and upload it to your BC environment via **Extension Management**.
+Build the `.app` file (Ctrl+Shift+B in VS Code) and upload to your BC environment via **Extension Management**.
 
-### 2. Run a Validation Test
+### 2. Validate Connectivity
 
 ```powershell
 .\scripts\bc-load-test.ps1 -Mode Validate -LinesPerDoc 3 -ClientSecret "your-secret"
 ```
 
-This creates 1 Sales Order and 1 Purchase Order to confirm the API connection works.
+### 3. Run a Sprint Test
 
-### 3. Run a Full Load Test
-
-```powershell
-.\scripts\bc-load-test.ps1 -Mode Full -SalesOrders 100 -PurchaseOrders 100 -LinesPerDoc 5 -ClientSecret "your-secret"
-```
-
-## Test Modes
-
-The script supports multiple test modes:
-
-### Validate
-Quick smoke test — creates 1 SO and 1 PO with lines to verify connectivity.
-```powershell
-.\scripts\bc-load-test.ps1 -Mode Validate
-```
-
-### Full
-Creates a specified number of documents sequentially.
-```powershell
-.\scripts\bc-load-test.ps1 -Mode Full -SalesOrders 100 -PurchaseOrders 100 -LinesPerDoc 5
-```
-
-### Read
-Read-only stress test — fetches existing documents.
-```powershell
-.\scripts\bc-load-test.ps1 -Mode Read
-```
-
-### Concurrent
-Multi-threaded document creation using PowerShell jobs.
-```powershell
-.\scripts\bc-load-test.ps1 -Mode Concurrent -ConcurrentJobs 5 -SalesOrders 50
-```
-
-### Race
-Time-based test — creates as many documents as possible in a fixed time window.
-```powershell
-.\scripts\bc-load-test.ps1 -Mode Race -RaceMinutes 5 -LinesPerDoc 3
-```
-
-### Endurance
-Long-running cyclic test — alternates between SO and PO creation phases for hours.
-```powershell
-.\scripts\bc-load-test.ps1 -Mode Endurance -CycleMinutes 10 -EnduranceMaxMinutes 120 -UseDeepInsert
-```
-
-### DeepInsert
-Race test using deep insert API (header + lines in 1 call) — 75% fewer API calls.
-```powershell
-.\scripts\bc-load-test.ps1 -Mode DeepInsert -RaceMinutes 5 -LinesPerDoc 3
-```
-
-### Sprint (NEW)
-**Maximum throughput test** — uses multi-threading + deep insert to create as many documents as possible in 1 minute.
-
-**Single App Mode:**
 ```powershell
 .\scripts\bc-load-test.ps1 -Mode Sprint -SprintDurationSeconds 60 -SprintThreads 10 -LinesPerDoc 3
 ```
 
-**Dual App Mode (Recommended):**
-For maximum performance, create two separate Entra apps and configure them in `.env`:
-```bash
+### 4. Try the Staging Approach
+
+```powershell
+.\scripts\bc-staging-load.ps1 -Mode Validate -ClientSecret "your-secret"
+.\scripts\bc-staging-load.ps1 -Mode Load -SalesOrders 50 -LinesPerDoc 3 -Threads 5
+.\scripts\bc-staging-load.ps1 -Mode Status -BatchId "BATCH-20260329-123456"
+```
+
+## Custom API Endpoints
+
+Base URL: `/api/defaultpublisher/docloadtest/v1.0/companies({companyId})/`
+
+| Endpoint | Description |
+|---|---|
+| `salesOrdersLT` | SO CRUD with batch field on `externalDocumentNumber` |
+| `salesOrdersLT({id})/salesOrderLinesLT` | SO Lines |
+| `purchaseOrdersLT` | PO CRUD with batch field on `vendorShipmentNo` |
+| `purchaseOrdersLT({id})/purchaseOrderLinesLT` | PO Lines |
+| `salesOrdersDI` | SO Deep Insert (header + lines in 1 POST) |
+| `purchaseOrdersDI` | PO Deep Insert (header + lines in 1 POST) |
+| `soStagingLinesLT` | SO Staging table (flat, no validation) |
+
+## Configuration
+
+### bc-load-test.ps1 Parameters
+
+| Parameter | Default | Description |
+|---|---|---|
+| `-Mode` | `Validate` | `Validate`, `Full`, `Read`, `Concurrent`, `Race`, `Endurance`, `DeepInsert`, `Sprint` |
+| `-SalesOrders` | 10 | Number of Sales Orders |
+| `-PurchaseOrders` | 10 | Number of Purchase Orders |
+| `-LinesPerDoc` | 3 | Lines per document |
+| `-ConcurrentJobs` | 3 | Parallel jobs (Concurrent mode) |
+| `-RaceMinutes` | 5 | Duration (Race/DeepInsert modes) |
+| `-CycleMinutes` | 10 | Cycle duration (Endurance mode) |
+| `-EnduranceMaxMinutes` | 120 | Max runtime (Endurance mode) |
+| `-SprintDurationSeconds` | 60 | Sprint duration |
+| `-SprintThreads` | 10 | Sprint parallel threads |
+| `-UseDeepInsert` | (switch) | Use deep insert in Endurance mode |
+
+### bc-staging-load.ps1 Parameters
+
+| Parameter | Default | Description |
+|---|---|---|
+| `-Mode` | `Validate` | `Validate`, `Load`, `Status` |
+| `-SalesOrders` | 10 | Number of Sales Orders to stage |
+| `-LinesPerDoc` | 3 | Lines per document |
+| `-Threads` | 5 | Parallel load threads |
+| `-BatchId` | (auto) | Batch ID for Status queries |
+
+### Dual-App Configuration
+
+Set in `.env` for independent SO/PO rate limits:
+```
 BC_CLIENT_ID_SO=your-so-app-id
 BC_CLIENT_SECRET_SO=your-so-secret
 BC_CLIENT_ID_PO=your-po-app-id
 BC_CLIENT_SECRET_PO=your-po-secret
 ```
 
-This gives:
-- SO threads use dedicated SO app (independent rate limit)
-- PO threads use dedicated PO app (independent rate limit)
-- True parallel execution without sharing rate limit quotas
-- 2x throughput potential vs single app
-
-Run with:
-```powershell
-.\scripts\bc-load-test.ps1 -Mode Sprint -SprintDurationSeconds 60 -SprintThreads 20 -LinesPerDoc 3
-```
-
-## Custom API Endpoints
-
-The extension exposes custom API pages under:
-
-```
-/api/defaultpublisher/docloadtest/v1.0/companies({companyId})/
-```
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `salesOrdersLT` | GET/POST | Sales Orders with `externalDocumentNumber` batch field |
-| `salesOrdersLT({id})/salesOrderLinesLT` | GET/POST | Sales Order Lines |
-| `purchaseOrdersLT` | GET/POST | Purchase Orders with `vendorShipmentNo` batch field |
-| `purchaseOrdersLT({id})/purchaseOrderLinesLT` | GET/POST | Purchase Order Lines |
-
-## Configuration
-
-All script parameters can be overridden on the command line:
-
-| Parameter | Default | Description |
-|---|---|---|
-| `-Mode` | `Validate` | Test mode: `Validate`, `Full`, `Read`, `Concurrent`, `Race`, `Endurance`, `DeepInsert`, `Sprint` |
-| `-SalesOrders` | 10 | Number of Sales Orders to create |
-| `-PurchaseOrders` | 10 | Number of Purchase Orders to create |
-| `-LinesPerDoc` | 3 | Lines per document |
-| `-ConcurrentJobs` | 3 | Parallel jobs (Concurrent mode only) |
-| `-RaceMinutes` | 5 | Duration for Race/DeepInsert modes (minutes) |
-| `-CycleMinutes` | 10 | Cycle duration for Endurance mode (minutes) |
-| `-EnduranceMaxMinutes` | 120 | Maximum runtime for Endurance mode (minutes) |
-| `-SprintDurationSeconds` | 60 | Sprint test duration (seconds) |
-| `-SprintThreads` | 10 | Number of parallel threads for Sprint mode |
-| `-UseDeepInsert` | (switch) | Use deep insert API in Endurance mode |
-| `-CustomerNo` | *(auto-detect)* | Customer number to use |
-| `-VendorNo` | *(auto-detect)* | Vendor number to use |
-| `-ItemNo` | *(auto-detect)* | Item number to use |
-| `-ClientSecret` | *(required)* | Entra app client secret |
-| `-ClientId_SO` | `$env:BC_CLIENT_ID_SO` | Sales Order app client ID (Sprint mode) |
-| `-ClientSecret_SO` | `$env:BC_CLIENT_SECRET_SO` | Sales Order app secret (Sprint mode) |
-| `-ClientId_PO` | `$env:BC_CLIENT_ID_PO` | Purchase Order app client ID (Sprint mode) |
-| `-ClientSecret_PO` | `$env:BC_CLIENT_SECRET_PO` | Purchase Order app secret (Sprint mode) |
-
 ## Object ID Range
 
 | Range | Objects |
 |---|---|
-| 50100–50101 | Tables (Setup, Results) |
+| 50100–50102 | Tables (Setup, Results, SO Staging Line) |
 | 50100–50101 | Pages (Setup Card, Results List) |
-| 50110–50113 | API Pages (SO, SO Lines, PO, PO Lines) |
-| 50100–50101 | Codeunits (Engine, Data Gen) |
+| 50110–50118 | API Pages (SO, SO Lines, PO, PO Lines, Deep Insert x4, Staging) |
+| 50100–50103 | Codeunits (Engine, Data Gen, Credit Limit Skip, Staging Processor) |
 | 50100 | Enum (Test Type), Permission Set |
 
 ## License

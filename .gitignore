@@ -8,6 +8,9 @@
 # Test results (generated output)
 results/
 
+# Pre-generated test payloads (contain doc numbers, not needed in source control)
+payloads/
+
 # Debug logs
 *.log
 debug-*.txt

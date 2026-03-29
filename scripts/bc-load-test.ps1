@@ -25,7 +25,7 @@
 #   .\scripts\bc-load-test.ps1 -Mode Sprint -SprintDurationSeconds 60 -SprintThreads 10 -LinesPerDoc 3
 
 param(
-    [ValidateSet("Validate", "Full", "Read", "Concurrent", "Race", "Endurance", "DeepInsert", "Sprint")]
+    [ValidateSet("Validate", "Full", "Read", "Concurrent", "Race", "Endurance", "DeepInsert", "Sprint", "Batch")]
     [string]$Mode = "Validate",
 
     [string]$TenantId = $env:BC_TENANT_ID,
@@ -56,6 +56,10 @@ param(
     [int]$SprintThreads = 10,
     [int]$SOThreads = -1,
     [int]$POThreads = -1,
+    [int]$PoolSize = 0,        # 0 = use all available apps; positive = cap token pool to first N apps
+    [int]$DocCount = 500,       # Batch mode: total documents to create per type
+    [int]$SOStartNumber = 0,    # 0 = auto-detect from last SM- SO in BC; override with explicit number
+    [int]$POStartNumber = 0,    # 0 = auto-detect from last PM- PO in BC; override with explicit number
     [int]$RetryCount = 3,
     [int]$RetryDelaySeconds = 10,
     [switch]$DebugLog,
@@ -672,37 +676,72 @@ function Start-SprintTest {
     Write-Host ""
 
     # Check if separate SO/PO apps are configured
-    $useSeparateApps = $ClientId_SO -and $ClientSecret_SO -and $ClientId_PO -and $ClientSecret_PO
-    
-    if ($useSeparateApps) {
-        Write-Host "Using SEPARATE apps for SO and PO (maximum parallelism)" -ForegroundColor Green
-        Write-Host "  SO App: $ClientId_SO" -ForegroundColor Gray
-        Write-Host "  PO App: $ClientId_PO" -ForegroundColor Gray
-        
-        # Get tokens for both apps
-        Write-Host "Acquiring SO token..." -ForegroundColor Yellow
-        $tokenSO = & "$PSScriptRoot\get-bc-token.ps1" -TenantId $TenantId -ClientId $ClientId_SO -ClientSecret $ClientSecret_SO
-        if (-not $tokenSO) {
-            Write-Host "Failed to acquire SO token. Exiting." -ForegroundColor Red
-            exit 1
+    # Build token pool from all configured Entra app credentials — threads are distributed round-robin
+    $tokenPool = @()
+    $poolAppIds = @()
+    $credPairs = @(
+        @{ Id = $ClientId;    Secret = $ClientSecret    },
+        @{ Id = $ClientId_SO; Secret = $ClientSecret_SO },
+        @{ Id = $ClientId_PO; Secret = $ClientSecret_PO }
+    )
+    foreach ($cred in $credPairs) {
+        if ($cred.Id -and $cred.Secret) {
+            Write-Host "Acquiring token: $($cred.Id)..." -ForegroundColor Yellow
+            $t = & "$PSScriptRoot\get-bc-token.ps1" -TenantId $TenantId -ClientId $cred.Id -ClientSecret $cred.Secret
+            if ($t) {
+                $tokenPool += $t
+                $poolAppIds += $cred.Id
+            } else {
+                Write-Host "  WARNING: Failed to acquire token for $($cred.Id)" -ForegroundColor Yellow
+            }
         }
-        
-        Write-Host "Acquiring PO token..." -ForegroundColor Yellow
-        $tokenPO = & "$PSScriptRoot\get-bc-token.ps1" -TenantId $TenantId -ClientId $ClientId_PO -ClientSecret $ClientSecret_PO
-        if (-not $tokenPO) {
-            Write-Host "Failed to acquire PO token. Exiting." -ForegroundColor Red
-            exit 1
-        }
-    } else {
-        Write-Host "Using SINGLE app for both SO and PO (shared rate limit)" -ForegroundColor Yellow
-        $tokenSO = $token
-        $tokenPO = $token
     }
+    if ($tokenPool.Count -eq 0) {
+        Write-Host "No tokens acquired — check credentials in .env. Exiting." -ForegroundColor Red
+        exit 1
+    }
+    if ($PoolSize -gt 0 -and $tokenPool.Count -gt $PoolSize) {
+        $tokenPool  = $tokenPool[0..($PoolSize - 1)]
+        $poolAppIds = $poolAppIds[0..($PoolSize - 1)]
+    }
+    Write-Host "Token pool: $($tokenPool.Count) app(s)" -ForegroundColor Green
+    foreach ($id in $poolAppIds) { Write-Host "  $id" -ForegroundColor Gray }
     Write-Host ""
 
     $custNo = Get-TestCustomer
     $vndNo = Get-TestVendor
     $itmNo = Get-TestItem
+    Write-Host ""
+
+    # Determine SO number range — needed when No. Series is set to Manual
+    $soNumPrefix = "SM-"
+    $soNumWidth  = 7
+    $soBaseNum   = 0
+    if ($SOStartNumber -gt 0) {
+        $soBaseNum = $SOStartNumber
+        Write-Host "SO start number: $($soNumPrefix + $soBaseNum.ToString().PadLeft($soNumWidth, '0')) (overridden)" -ForegroundColor Gray
+    } else {
+        Write-Host "Looking up last SO number..." -ForegroundColor Yellow
+        try {
+            $lastSoResp = Invoke-RestMethod -Uri "$customApi/salesOrdersDI?`$orderby=number desc&`$top=1&`$select=number" `
+                -Headers $headers -Method Get -ErrorAction Stop
+            if ($lastSoResp.value -and $lastSoResp.value.Count -gt 0) {
+                $lastNo = $lastSoResp.value[0].number
+                if ($lastNo -match '^([A-Za-z]+-?)([0-9]+)$') {
+                    $soNumPrefix = $Matches[1]
+                    $soNumWidth  = $Matches[2].Length
+                    $soBaseNum   = [int]$Matches[2]
+                }
+                Write-Host "Last SO: $lastNo — next range starts at $($soNumPrefix + ($soBaseNum + 1).ToString().PadLeft($soNumWidth, '0'))" -ForegroundColor Green
+            } else {
+                Write-Host "No existing SOs found — starting from $($soNumPrefix + '0000001')" -ForegroundColor Yellow
+                $soBaseNum = 0
+            }
+        } catch {
+            Write-Host "WARNING: Could not look up last SO number: $_" -ForegroundColor Yellow
+            Write-Host "Use -SOStartNumber to set an explicit starting number." -ForegroundColor Yellow
+        }
+    }
     Write-Host ""
 
     $overallStart = Get-Date
@@ -722,92 +761,105 @@ function Start-SprintTest {
     }
     $totalThreads = $soThreads + $poThreads
 
-    # Temp dir for live per-request status counts (one file per thread, no locking needed)
+    # Results dir — per-thread detail files written here live as requests complete
+    $resultsDir = Join-Path $PSScriptRoot ".." "results"
+    if (-not (Test-Path $resultsDir)) { New-Item -ItemType Directory -Path $resultsDir | Out-Null }
+    # Temp dir for live status-code counts used by the progress display
     $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) "bc-sprint-$batchId"
     New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
 
     Write-Host "Launching threads: $soThreads SO + $poThreads PO = $totalThreads total" -ForegroundColor Yellow
     Write-Host ""
 
-    # Launch SO threads
+    # Launch SO threads — round-robin across token pool
+    $soRangePerThread = 1000  # max SOs any single thread can create per sprint run
     for ($j = 1; $j -le $soThreads; $j++) {
+        $threadToken = $tokenPool[($j - 1) % $tokenPool.Count]
+        $threadLabel = "SO-T$j"
+        $threadStartNum = $soBaseNum + 1 + ($j - 1) * $soRangePerThread
         $jobs += Start-Job -ScriptBlock {
-            param($BcRoot, $CompanyId, $CustNo, $ItmNo, $Lines, $Token, $JobNum, $Deadline, $DocType, $BatchId, $TmpDir)
+                param($BcRoot, $CompanyId, $CustNo, $ItmNo, $Lines, $Token, $JobNum, $Deadline, $DocType, $BatchId, $TmpDir, $ResultsDir, $ThreadLabel, $ThreadStartNum, $NumPrefix, $NumWidth)
 
-            $headers = @{
-                "Authorization" = "Bearer $Token"
-                "Content-Type"  = "application/json"
-                "Accept"        = "application/json"
-            }
-            $customApi = "$BcRoot/api/defaultpublisher/docloadtest/v1.0/companies($CompanyId)"
-            $success = 0; $errors = 0; $rateLimits = 0
-            $times = @()
-            $requests = [System.Collections.Generic.List[object]]::new()
-            $tmpFile = Join-Path $TmpDir "SO-T$JobNum.txt"
-
-            while ((Get-Date) -lt $Deadline) {
-                $ts = Get-Date -Format "HH:mm:ss.fff"
-                try {
-                    $sw = [System.Diagnostics.Stopwatch]::StartNew()
-                    
-                    # Create Sales Order with deep insert
-                    # unitPrice is set before quantity so it overrides the price engine
-                    # before BC calculates the line amount (DelayedInsert field order matters)
-                    $lineItems = @(1..$Lines | ForEach-Object {
-                        [ordered]@{
-                            itemNumber = $ItmNo
-                            lineType = "Item"
-                            unitPrice = 100
-                            quantity = 1
-                        }
-                    })
-                    $soBody = @{
-                        customerNumber = $CustNo
-                        orderDate = (Get-Date -Format "yyyy-MM-dd")
-                        externalDocumentNumber = $BatchId
-                        salesOrderLinesDI = $lineItems
-                    } | ConvertTo-Json -Depth 10
-                    
-                    $null = Invoke-RestMethod -Uri "$customApi/salesOrdersDI" `
-                        -Method Post -Headers $headers -Body $soBody -TimeoutSec 15
-                    
-                    $sw.Stop()
-                    $times += $sw.ElapsedMilliseconds
-                    $success++
-                    $requests.Add([PSCustomObject]@{ Timestamp = $ts; StatusCode = 200; ElapsedMs = $sw.ElapsedMilliseconds })
-                    Add-Content -Path $tmpFile -Value "200"
-                    
-                } catch {
-                    $sw.Stop()
-                    $errors++
-                    $statusCode = 0
-                    try { $statusCode = [int]$_.Exception.Response.StatusCode.value__ } catch { }
-                    if ($statusCode -eq 429) {
-                        $rateLimits++
-                        Start-Sleep -Seconds 2
-                    }
-                    $requests.Add([PSCustomObject]@{ Timestamp = $ts; StatusCode = $statusCode; ElapsedMs = $sw.ElapsedMilliseconds })
-                    Add-Content -Path $tmpFile -Value "$statusCode"
+                $headers = @{
+                    "Authorization" = "Bearer $Token"
+                    "Content-Type"  = "application/json"
+                    "Accept"        = "application/json"
                 }
-            }
+                $customApi = "$BcRoot/api/defaultpublisher/docloadtest/v1.0/companies($CompanyId)"
+                $success = 0; $errors = 0; $rateLimits = 0
+                $times = @()
+                $tmpFile    = Join-Path $TmpDir "$ThreadLabel.txt"
+                $detailFile = Join-Path $ResultsDir "sprint-partial-$BatchId-$ThreadLabel.csv"
+                # Write CSV header immediately so file exists on disk from the start
+                "BatchId,Thread,Type,Timestamp,StatusCode,ElapsedMs,Success" | Set-Content -Path $detailFile
+                $nextDocNum = $ThreadStartNum
 
-            $avgTime = if ($times.Count -gt 0) { ($times | Measure-Object -Average).Average } else { 0 }
-            return @{ 
-                Job = $JobNum
-                Type = $DocType
-                Success = $success
-                Errors = $errors
-                RateLimits = $rateLimits
-                AvgMs = [int]$avgTime
-                Requests = $requests
-            }
-        } -ArgumentList $bcRoot, $companyId, $custNo, $itmNo, $LinesPerDoc, $tokenSO, $j, $deadline, "SO", $batchId, $tmpDir
+                while ((Get-Date) -lt $Deadline) {
+                    $ts = Get-Date -Format "HH:mm:ss.fff"
+                    try {
+                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                        
+                        # Create Sales Order with deep insert
+                        # unitPrice is set before quantity so it overrides the price engine
+                        # before BC calculates the line amount (DelayedInsert field order matters)
+                        $lineItems = @(1..$Lines | ForEach-Object {
+                            [ordered]@{
+                                itemNumber = $ItmNo
+                                lineType = "Item"
+                                unitPrice = 100
+                                quantity = 1
+                            }
+                        })
+                        $docNumber = "$NumPrefix$($nextDocNum.ToString().PadLeft($NumWidth, '0'))"
+                        $soBody = @{
+                            number = $docNumber
+                            customerNumber = $CustNo
+                            orderDate = (Get-Date -Format "yyyy-MM-dd")
+                            externalDocumentNumber = $BatchId
+                            salesOrderLinesDI = $lineItems
+                        } | ConvertTo-Json -Depth 10
+                        $nextDocNum++
+                        
+                        $null = Invoke-RestMethod -Uri "$customApi/salesOrdersDI" `
+                            -Method Post -Headers $headers -Body $soBody -TimeoutSec 15
+                        
+                        $sw.Stop()
+                        $times += $sw.ElapsedMilliseconds
+                        $success++
+                        Add-Content -Path $tmpFile    -Value "200"
+                        Add-Content -Path $detailFile -Value "$BatchId,$ThreadLabel,SO,$ts,200,$($sw.ElapsedMilliseconds),1"
+                        
+                    } catch {
+                        $sw.Stop()
+                        $errors++
+                        $statusCode = 0
+                        try { $statusCode = [int]$_.Exception.Response.StatusCode.value__ } catch { }
+                        if ($statusCode -eq 429) {
+                            $rateLimits++
+                            Start-Sleep -Seconds 2
+                        }
+                        Add-Content -Path $tmpFile    -Value "$statusCode"
+                        Add-Content -Path $detailFile -Value "$BatchId,$ThreadLabel,SO,$ts,$statusCode,$($sw.ElapsedMilliseconds),0"
+                    }
+                }
+
+                $avgTime = if ($times.Count -gt 0) { ($times | Measure-Object -Average).Average } else { 0 }
+                return @{ 
+                    Job = $JobNum
+                    Type = $DocType
+                    Success = $success
+                    Errors = $errors
+                    RateLimits = $rateLimits
+                    AvgMs = [int]$avgTime
+                }
+        } -ArgumentList $bcRoot, $companyId, $custNo, $itmNo, $LinesPerDoc, $threadToken, $j, $deadline, "SO", $batchId, $tmpDir, $resultsDir, $threadLabel, $threadStartNum, $soNumPrefix, $soNumWidth
     }
 
     # Launch PO threads
     for ($j = 1; $j -le $poThreads; $j++) {
+        $threadToken = $tokenPool[($j - 1) % $tokenPool.Count]
         $jobs += Start-Job -ScriptBlock {
-            param($BcRoot, $CompanyId, $VndNo, $ItmNo, $Lines, $Token, $JobNum, $Deadline, $DocType, $BatchId, $TmpDir)
+            param($BcRoot, $CompanyId, $VndNo, $ItmNo, $Lines, $Token, $JobNum, $Deadline, $DocType, $BatchId, $TmpDir, $ResultsDir, $SOThreads)
 
             $headers = @{
                 "Authorization" = "Bearer $Token"
@@ -817,8 +869,10 @@ function Start-SprintTest {
             $customApi = "$BcRoot/api/defaultpublisher/docloadtest/v1.0/companies($CompanyId)"
             $success = 0; $errors = 0; $rateLimits = 0
             $times = @()
-            $requests = [System.Collections.Generic.List[object]]::new()
-            $tmpFile = Join-Path $TmpDir "PO-T$JobNum.txt"
+            $tmpFile    = Join-Path $TmpDir "PO-T$JobNum.txt"
+            $detailFile = Join-Path $ResultsDir "sprint-partial-$BatchId-PO-T$JobNum.csv"
+            # Write CSV header immediately so file exists on disk from the start
+            "BatchId,Thread,Type,Timestamp,StatusCode,ElapsedMs,Success" | Set-Content -Path $detailFile
 
             while ((Get-Date) -lt $Deadline) {
                 $ts = Get-Date -Format "HH:mm:ss.fff"
@@ -846,8 +900,8 @@ function Start-SprintTest {
                     $sw.Stop()
                     $times += $sw.ElapsedMilliseconds
                     $success++
-                    $requests.Add([PSCustomObject]@{ Timestamp = $ts; StatusCode = 200; ElapsedMs = $sw.ElapsedMilliseconds })
-                    Add-Content -Path $tmpFile -Value "200"
+                    Add-Content -Path $tmpFile    -Value "200"
+                    Add-Content -Path $detailFile -Value "$BatchId,PO-T$JobNum,PO,$ts,200,$($sw.ElapsedMilliseconds),1"
                     
                 } catch {
                     $sw.Stop()
@@ -858,22 +912,21 @@ function Start-SprintTest {
                         $rateLimits++
                         Start-Sleep -Seconds 2
                     }
-                    $requests.Add([PSCustomObject]@{ Timestamp = $ts; StatusCode = $statusCode; ElapsedMs = $sw.ElapsedMilliseconds })
-                    Add-Content -Path $tmpFile -Value "$statusCode"
+                    Add-Content -Path $tmpFile    -Value "$statusCode"
+                    Add-Content -Path $detailFile -Value "$BatchId,PO-T$JobNum,PO,$ts,$statusCode,$($sw.ElapsedMilliseconds),0"
                 }
             }
 
             $avgTime = if ($times.Count -gt 0) { ($times | Measure-Object -Average).Average } else { 0 }
             return @{ 
-                Job = $JobNum + $soThreads
+                Job = $JobNum + $SOThreads
                 Type = $DocType
                 Success = $success
                 Errors = $errors
                 RateLimits = $rateLimits
                 AvgMs = [int]$avgTime
-                Requests = $requests
             }
-        } -ArgumentList $bcRoot, $companyId, $vndNo, $itmNo, $LinesPerDoc, $tokenPO, $j, $deadline, "PO", $batchId, $tmpDir
+        } -ArgumentList $bcRoot, $companyId, $vndNo, $itmNo, $LinesPerDoc, $threadToken, $j, $deadline, "PO", $batchId, $tmpDir, $resultsDir, $soThreads
     }
 
     Write-Host "All threads launched. Running full parallel sprint for $SprintDurationSeconds seconds..." -ForegroundColor Yellow
@@ -912,11 +965,11 @@ function Start-SprintTest {
         Start-Sleep -Milliseconds 500
     }
     Write-Host ""
-    # Clean up temp dir
-    Remove-Item -Path $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
     
     $results = $jobs | Wait-Job | Receive-Job
     $jobs | Remove-Job
+    # Clean up temp dir now that all jobs have finished
+    Remove-Item -Path $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
 
     $overallEnd = Get-Date
     $actualDuration = ($overallEnd - $overallStart).TotalSeconds
@@ -964,19 +1017,15 @@ function Start-SprintTest {
         Write-Host "    T$($r.Job): $($r.Success) docs @ ${threadRate}/s - Avg: $($r.AvgMs)ms$rlStr" -ForegroundColor Gray
     }
     Write-Host ""
-    if ($totalRateLimits -gt 0 -and -not $useSeparateApps) {
-        Write-Host "HINT: You hit rate limits. Consider using separate Entra apps for SO and PO!" -ForegroundColor Yellow
-    } elseif ($totalRateLimits -gt 0) {
-        Write-Host "HINT: Rate limits hit even with separate apps. Consider reducing thread count." -ForegroundColor Yellow
+    if ($totalRateLimits -gt 0) {
+        Write-Host "HINT: Rate limits hit. Consider adding more Entra apps to the token pool or reducing thread count." -ForegroundColor Yellow
     }
 
     # Save results to CSV
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $resultsDir = Join-Path $PSScriptRoot ".." "results"
-    if (-not (Test-Path $resultsDir)) { New-Item -ItemType Directory -Path $resultsDir | Out-Null }
+    $summaryFile = Join-Path $resultsDir "sprint-$timestamp.csv"
 
     # Summary CSV
-    $summaryFile = Join-Path $resultsDir "sprint-$timestamp.csv"
     $summary = [PSCustomObject]@{
         Timestamp = $overallStart.ToString("yyyy-MM-dd HH:mm:ss")
         Duration_Sec = $actualDuration
@@ -993,29 +1042,23 @@ function Start-SprintTest {
         Throughput = $throughput
         SO_Rate = $soRate
         PO_Rate = $poRate
-        SeparateApps = $useSeparateApps
+        AppPoolSize = $tokenPool.Count
     }
     $summary | Export-Csv -Path $summaryFile -NoTypeInformation
     Write-Host "Summary saved: $summaryFile" -ForegroundColor Gray
 
-    # Detailed per-request CSV (one row per API call)
+    # Combine per-thread partial detail files into one sorted detail CSV
     $detailFile = Join-Path $resultsDir "sprint-detail-$timestamp.csv"
-    $details = [System.Collections.Generic.List[object]]::new()
-    foreach ($r in $results | Sort-Object { $_.Type }, { $_.Job }) {
-        foreach ($req in $r.Requests) {
-            $details.Add([PSCustomObject]@{
-                BatchId   = $batchId
-                Thread    = "$($r.Type)-T$($r.Job)"
-                Type      = $r.Type
-                Timestamp = $req.Timestamp
-                StatusCode = $req.StatusCode
-                ElapsedMs = $req.ElapsedMs
-                Success   = if ($req.StatusCode -eq 200) { 1 } else { 0 }
-            })
+    $partialFiles = Get-ChildItem -Path $resultsDir -Filter "sprint-partial-$batchId-*.csv" | Sort-Object Name
+    if ($partialFiles) {
+        # Write header once, then append all data rows (skip each file's header line)
+        "BatchId,Thread,Type,Timestamp,StatusCode,ElapsedMs,Success" | Set-Content -Path $detailFile
+        foreach ($f in $partialFiles) {
+            Get-Content $f.FullName | Select-Object -Skip 1 | Add-Content -Path $detailFile
         }
+        $partialFiles | Remove-Item -Force
+        Write-Host "Details saved: $detailFile" -ForegroundColor Gray
     }
-    $details | Sort-Object Timestamp | Export-Csv -Path $detailFile -NoTypeInformation
-    Write-Host "Details saved: $detailFile" -ForegroundColor Gray
     Write-Host ""
 }
 
@@ -1419,6 +1462,437 @@ function Start-DeepInsertTest {
     Write-Host "═══════════════════════════════════════════" -ForegroundColor Yellow
 }
 
+# ─────────────────────────── Batch (Fixed Payload) Test ───────────────────────────
+
+function Start-BatchTest {
+    Write-Host "=== BATCH TEST ($DocCount documents, $LinesPerDoc lines each) ===" -ForegroundColor Cyan
+    Write-Host "File-based payloads: pre-generated and validated before threads launch." -ForegroundColor Gray
+    Write-Host ""
+
+    # Build token pool
+    $tokenPool = @()
+    $poolAppIds = @()
+    $credPairs = @(
+        @{ Id = $ClientId;    Secret = $ClientSecret    },
+        @{ Id = $ClientId_SO; Secret = $ClientSecret_SO },
+        @{ Id = $ClientId_PO; Secret = $ClientSecret_PO }
+    )
+    foreach ($cred in $credPairs) {
+        if ($cred.Id -and $cred.Secret) {
+            Write-Host "Acquiring token: $($cred.Id)..." -ForegroundColor Yellow
+            $t = & "$PSScriptRoot\get-bc-token.ps1" -TenantId $TenantId -ClientId $cred.Id -ClientSecret $cred.Secret
+            if ($t) {
+                $tokenPool  += $t
+                $poolAppIds += $cred.Id
+            } else {
+                Write-Host "  WARNING: Failed to acquire token for $($cred.Id)" -ForegroundColor Yellow
+            }
+        }
+    }
+    if ($tokenPool.Count -eq 0) { Write-Host "No tokens acquired. Exiting." -ForegroundColor Red; exit 1 }
+    if ($PoolSize -gt 0 -and $tokenPool.Count -gt $PoolSize) {
+        $tokenPool  = $tokenPool[0..($PoolSize - 1)]
+        $poolAppIds = $poolAppIds[0..($PoolSize - 1)]
+    }
+    Write-Host "Token pool: $($tokenPool.Count) app(s)" -ForegroundColor Green
+    foreach ($id in $poolAppIds) { Write-Host "  $id" -ForegroundColor Gray }
+    Write-Host ""
+
+    $custNo = Get-TestCustomer
+    $vndNo  = Get-TestVendor
+    $itmNo  = Get-TestItem
+    Write-Host ""
+
+    # Split threads
+    if ($SOThreads -ge 0 -or $POThreads -ge 0) {
+        $soThreads = if ($SOThreads -ge 0) { $SOThreads } else { [math]::Ceiling($SprintThreads / 2.0) }
+        $poThreads = if ($POThreads -ge 0) { $POThreads } else { $SprintThreads - $soThreads }
+    } else {
+        $soThreads = [math]::Ceiling($SprintThreads / 2.0)
+        $poThreads = $SprintThreads - $soThreads
+    }
+
+    $batchId      = "BATCH-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    $resultsDir   = Join-Path $PSScriptRoot ".." "results"
+    if (-not (Test-Path $resultsDir)) { New-Item -ItemType Directory -Path $resultsDir | Out-Null }
+    $tmpDir        = Join-Path ([System.IO.Path]::GetTempPath()) "bc-batch-$batchId"
+    New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
+
+    # Payload files directory (git-excluded via payloads/ in .gitignore)
+    $payloadsBase  = Join-Path $PSScriptRoot ".." "payloads"
+    $payloadsBatch = Join-Path $payloadsBase $batchId
+    New-Item -ItemType Directory -Path $payloadsBatch -Force | Out-Null
+
+    $jobs = @()
+    Write-Host "Batch ID: $batchId" -ForegroundColor Gray
+    Write-Host ""
+
+    # ── SO Payload Generation ──
+    $soPayloadFiles = @()
+    if ($soThreads -gt 0) {
+        $soNumPrefix = "SM-"
+        $soNumWidth  = 7
+        $soBaseNum   = 0
+        if ($SOStartNumber -gt 0) {
+            $soBaseNum = $SOStartNumber
+            Write-Host "SO start: $soNumPrefix$($soBaseNum.ToString().PadLeft($soNumWidth,'0')) (overridden)" -ForegroundColor Gray
+        } else {
+            Write-Host "Looking up last SM- SO number..." -ForegroundColor Yellow
+            try {
+                $allSoNums = @(); $soNextLink = "$customApi/salesOrdersDI?`$filter=startswith(number,'SM-')&`$select=number&`$top=1000"
+                while ($soNextLink) {
+                    $pg = Invoke-RestMethod -Uri $soNextLink -Headers $headers -Method Get -ErrorAction Stop
+                    $allSoNums += $pg.value | ForEach-Object { $_.number }
+                    $soNextLink = $pg.'@odata.nextLink'
+                }
+                if ($allSoNums.Count -gt 0) {
+                    $lastNo = $allSoNums | Where-Object { $_ -match '^([A-Za-z]+-?)([0-9]+)$' } | Sort-Object { [int]($_ -replace '^[A-Za-z]+-?','') } | Select-Object -Last 1
+                    if ($lastNo -match '^([A-Za-z]+-?)([0-9]+)$') {
+                        $soNumPrefix = $Matches[1]; $soNumWidth = $Matches[2].Length; $soBaseNum = [int]$Matches[2]
+                    }
+                    Write-Host "Last SM- SO: $lastNo (of $($allSoNums.Count) found)" -ForegroundColor Green
+                } else {
+                    Write-Host "No SM- SOs found — starting from SM-0000001" -ForegroundColor Yellow
+                }
+            } catch {
+                Write-Host "WARNING: Could not look up last SO number: $_" -ForegroundColor Yellow
+                Write-Host "Use -SOStartNumber to override." -ForegroundColor Yellow
+            }
+        }
+        Write-Host "Generating $DocCount SO payloads ($soNumPrefix$($($soBaseNum+1).ToString().PadLeft($soNumWidth,'0')) — $soNumPrefix$($($soBaseNum+$DocCount).ToString().PadLeft($soNumWidth,'0')))..." -ForegroundColor Yellow
+        $orderDate = Get-Date -Format "yyyy-MM-dd"
+        $lineItems = @(1..$LinesPerDoc | ForEach-Object {
+            [ordered]@{ itemNumber = $itmNo; lineType = "Item"; unitPrice = 100; quantity = 1 }
+        })
+        $allSoJson = [System.Collections.Generic.List[string]]::new()
+        for ($i = 0; $i -lt $DocCount; $i++) {
+            $docNum = $soBaseNum + 1 + $i
+            $allSoJson.Add(([ordered]@{
+                number                 = "$soNumPrefix$($docNum.ToString().PadLeft($soNumWidth,'0'))"
+                customerNumber         = $custNo
+                orderDate              = $orderDate
+                externalDocumentNumber = $batchId
+                salesOrderLinesDI      = $lineItems
+            } | ConvertTo-Json -Depth 10 -Compress))
+        }
+        # Validate uniqueness before touching BC
+        $soNums   = $allSoJson | ForEach-Object { ($_ | ConvertFrom-Json).number }
+        $soUnique = $soNums | Sort-Object -Unique
+        if ($soUnique.Count -ne $allSoJson.Count) {
+            Write-Host "ERROR: Duplicate SO numbers detected in generated payloads. Aborting." -ForegroundColor Red; exit 1
+        }
+        Write-Host "  Validation: $($allSoJson.Count) unique SO numbers confirmed." -ForegroundColor Green
+
+        # Write per-thread JSONL files — threads read from file, never share an array
+        $chunkSize = [math]::Ceiling($allSoJson.Count / $soThreads)
+        for ($j = 1; $j -le $soThreads; $j++) {
+            $sliceStart = ($j - 1) * $chunkSize
+            $sliceEnd   = [math]::Min($j * $chunkSize - 1, $allSoJson.Count - 1)
+            $filePath   = Join-Path $payloadsBatch "SO-T$j.jsonl"
+            if ($sliceStart -le $sliceEnd) {
+                $allSoJson[$sliceStart..$sliceEnd] | Set-Content -Path $filePath -Encoding UTF8
+            } else {
+                Set-Content -Path $filePath -Value "" -Encoding UTF8
+            }
+            $lineCount = if ($sliceStart -le $sliceEnd) { $sliceEnd - $sliceStart + 1 } else { 0 }
+            Write-Host "  SO-T${j}: $lineCount docs → $(Split-Path $filePath -Leaf)" -ForegroundColor Gray
+            $soPayloadFiles += $filePath
+        }
+    }
+
+    # ── PO Payload Generation ──
+    $poPayloadFiles = @()
+    if ($poThreads -gt 0) {
+        $poNumPrefix = "PM-"
+        $poNumWidth  = 7
+        $poBaseNum   = 0
+        if ($POStartNumber -gt 0) {
+            $poBaseNum = $POStartNumber
+            Write-Host "PO start: $poNumPrefix$($poBaseNum.ToString().PadLeft($poNumWidth,'0')) (overridden)" -ForegroundColor Gray
+        } else {
+            Write-Host "Looking up last PM- PO number..." -ForegroundColor Yellow
+            try {
+                $allPoNums = @(); $poNextLink = "$customApi/purchaseOrdersDI?`$filter=startswith(number,'PM-')&`$select=number&`$top=1000"
+                while ($poNextLink) {
+                    $pg = Invoke-RestMethod -Uri $poNextLink -Headers $headers -Method Get -ErrorAction Stop
+                    $allPoNums += $pg.value | ForEach-Object { $_.number }
+                    $poNextLink = $pg.'@odata.nextLink'
+                }
+                if ($allPoNums.Count -gt 0) {
+                    $lastNo = $allPoNums | Where-Object { $_ -match '^([A-Za-z]+-?)([0-9]+)$' } | Sort-Object { [int]($_ -replace '^[A-Za-z]+-?','') } | Select-Object -Last 1
+                    if ($lastNo -match '^([A-Za-z]+-?)([0-9]+)$') {
+                        $poNumPrefix = $Matches[1]; $poNumWidth = $Matches[2].Length; $poBaseNum = [int]$Matches[2]
+                    }
+                    Write-Host "Last PM- PO: $lastNo (of $($allPoNums.Count) found)" -ForegroundColor Green
+                } else {
+                    Write-Host "No PM- POs found — starting from PM-0000001" -ForegroundColor Yellow
+                }
+            } catch {
+                Write-Host "WARNING: Could not look up last PO number: $_" -ForegroundColor Yellow
+                Write-Host "Use -POStartNumber to override." -ForegroundColor Yellow
+            }
+        }
+        Write-Host "Generating $DocCount PO payloads ($poNumPrefix$($($poBaseNum+1).ToString().PadLeft($poNumWidth,'0')) — $poNumPrefix$($($poBaseNum+$DocCount).ToString().PadLeft($poNumWidth,'0')))..." -ForegroundColor Yellow
+        $orderDate = Get-Date -Format "yyyy-MM-dd"
+        $lineItems = @(1..$LinesPerDoc | ForEach-Object {
+            @{ itemNumber = $itmNo; lineType = "Item"; quantity = 1 }
+        })
+        $allPoJson = [System.Collections.Generic.List[string]]::new()
+        for ($i = 0; $i -lt $DocCount; $i++) {
+            $docNum = $poBaseNum + 1 + $i
+            $allPoJson.Add(([ordered]@{
+                number               = "$poNumPrefix$($docNum.ToString().PadLeft($poNumWidth,'0'))"
+                vendorNumber         = $vndNo
+                orderDate            = $orderDate
+                vendorShipmentNo     = $batchId
+                purchaseOrderLinesDI = $lineItems
+            } | ConvertTo-Json -Depth 10 -Compress))
+        }
+        # Validate uniqueness
+        $poNums   = $allPoJson | ForEach-Object { ($_ | ConvertFrom-Json).number }
+        $poUnique = $poNums | Sort-Object -Unique
+        if ($poUnique.Count -ne $allPoJson.Count) {
+            Write-Host "ERROR: Duplicate PO numbers detected in generated payloads. Aborting." -ForegroundColor Red; exit 1
+        }
+        Write-Host "  Validation: $($allPoJson.Count) unique PO numbers confirmed." -ForegroundColor Green
+
+        # Write per-thread JSONL files
+        $chunkSize = [math]::Ceiling($allPoJson.Count / $poThreads)
+        for ($j = 1; $j -le $poThreads; $j++) {
+            $sliceStart = ($j - 1) * $chunkSize
+            $sliceEnd   = [math]::Min($j * $chunkSize - 1, $allPoJson.Count - 1)
+            $filePath   = Join-Path $payloadsBatch "PO-T$j.jsonl"
+            if ($sliceStart -le $sliceEnd) {
+                $allPoJson[$sliceStart..$sliceEnd] | Set-Content -Path $filePath -Encoding UTF8
+            } else {
+                Set-Content -Path $filePath -Value "" -Encoding UTF8
+            }
+            $lineCount = if ($sliceStart -le $sliceEnd) { $sliceEnd - $sliceStart + 1 } else { 0 }
+            Write-Host "  PO-T${j}: $lineCount docs → $(Split-Path $filePath -Leaf)" -ForegroundColor Gray
+            $poPayloadFiles += $filePath
+        }
+    }
+
+    $soTotalCount = if ($soPayloadFiles.Count -gt 0) { ($soPayloadFiles | ForEach-Object { Get-Content $_ | Where-Object { $_.Trim() -ne '' } }).Count } else { 0 }
+    $poTotalCount = if ($poPayloadFiles.Count -gt 0) { ($poPayloadFiles | ForEach-Object { Get-Content $_ | Where-Object { $_.Trim() -ne '' } }).Count } else { 0 }
+    $totalTarget  = $soTotalCount + $poTotalCount
+
+    Write-Host ""
+    Write-Host "Payload files: $payloadsBatch" -ForegroundColor Gray
+    Write-Host "Launching threads: $soThreads SO + $poThreads PO = $($soThreads + $poThreads) total" -ForegroundColor Yellow
+    Write-Host ""
+    $overallStart = Get-Date
+
+    # ── Launch SO threads ──
+    for ($j = 1; $j -le $soThreads; $j++) {
+        $threadToken = $tokenPool[($j - 1) % $tokenPool.Count]
+        $threadLabel = "SO-T$j"
+        $payloadFile = $soPayloadFiles[$j - 1]
+        $jobs += Start-Job -ScriptBlock {
+            param($BcRoot, $CompanyId, $Token, $JobNum, $PayloadFile, $BatchId, $TmpDir, $ResultsDir, $ThreadLabel)
+            $headers   = @{ "Authorization" = "Bearer $Token"; "Content-Type" = "application/json"; "Accept" = "application/json" }
+            $customApi = "$BcRoot/api/defaultpublisher/docloadtest/v1.0/companies($CompanyId)"
+            $success = 0; $errors = 0; $rateLimits = 0; $times = @()
+            $tmpFile    = Join-Path $TmpDir "$ThreadLabel.txt"
+            $detailFile = Join-Path $ResultsDir "batch-partial-$BatchId-$ThreadLabel.csv"
+            "BatchId,Thread,Type,Timestamp,StatusCode,ElapsedMs,Attempt,ErrorBody" | Set-Content -Path $detailFile
+            Get-Content -Path $PayloadFile | Where-Object { $_.Trim() -ne '' } | ForEach-Object {
+                $payloadJson = $_
+                $ts = Get-Date -Format "HH:mm:ss.fff"
+                $maxRetries = 8; $attempt = 0; $done = $false
+                while (-not $done) {
+                    $attempt++
+                    try {
+                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                        $null = Invoke-RestMethod -Uri "$customApi/salesOrdersDI" -Method Post -Headers $headers -Body $payloadJson -TimeoutSec 30
+                        $sw.Stop(); $times += $sw.ElapsedMilliseconds; $success++
+                        Add-Content -Path $tmpFile    -Value "200"
+                        Add-Content -Path $detailFile -Value "$BatchId,$ThreadLabel,SO,$ts,200,$($sw.ElapsedMilliseconds),$attempt,"
+                        $done = $true
+                    } catch {
+                        $sw.Stop()
+                        $statusCode = 0; try { $statusCode = [int]$_.Exception.Response.StatusCode.value__ } catch { }
+                        $errBody = ($_.ErrorDetails.Message -replace '"','''' -replace ',',';' -replace "`n"," " -replace "`r","")
+                        if ($statusCode -eq 409 -and $attempt -lt $maxRetries) {
+                            # Exponential backoff + random jitter to avoid thundering herd
+                            $backoffMs = [math]::Min(5000, 250 * [math]::Pow(2, $attempt - 1))
+                            $jitterMs  = Get-Random -Minimum 0 -Maximum 500
+                            Start-Sleep -Milliseconds ($backoffMs + $jitterMs)
+                        } else {
+                            $errors++
+                            if ($statusCode -eq 429) { $rateLimits++; Start-Sleep -Seconds 2 }
+                            Add-Content -Path $tmpFile    -Value "$statusCode"
+                            Add-Content -Path $detailFile -Value "$BatchId,$ThreadLabel,SO,$ts,$statusCode,$($sw.ElapsedMilliseconds),$attempt,$errBody"
+                            $done = $true
+                        }
+                    }
+                }
+            }
+            $avgTime = if ($times.Count -gt 0) { ($times | Measure-Object -Average).Average } else { 0 }
+            return @{ Job = $JobNum; Type = 'SO'; Success = $success; Errors = $errors; RateLimits = $rateLimits; AvgMs = [int]$avgTime }
+        } -ArgumentList $bcRoot, $companyId, $threadToken, $j, $payloadFile, $batchId, $tmpDir, $resultsDir, $threadLabel
+    }
+
+    # ── Launch PO threads ──
+    for ($j = 1; $j -le $poThreads; $j++) {
+        $threadToken = $tokenPool[($j - 1) % $tokenPool.Count]
+        $threadLabel = "PO-T$j"
+        $payloadFile = $poPayloadFiles[$j - 1]
+        $jobs += Start-Job -ScriptBlock {
+            param($BcRoot, $CompanyId, $Token, $JobNum, $PayloadFile, $BatchId, $TmpDir, $ResultsDir, $ThreadLabel, $SOThreads)
+            $headers   = @{ "Authorization" = "Bearer $Token"; "Content-Type" = "application/json"; "Accept" = "application/json" }
+            $customApi = "$BcRoot/api/defaultpublisher/docloadtest/v1.0/companies($CompanyId)"
+            $success = 0; $errors = 0; $rateLimits = 0; $times = @()
+            $tmpFile    = Join-Path $TmpDir "$ThreadLabel.txt"
+            $detailFile = Join-Path $ResultsDir "batch-partial-$BatchId-$ThreadLabel.csv"
+            "BatchId,Thread,Type,Timestamp,StatusCode,ElapsedMs,Attempt,ErrorBody" | Set-Content -Path $detailFile
+            Get-Content -Path $PayloadFile | Where-Object { $_.Trim() -ne '' } | ForEach-Object {
+                $payloadJson = $_
+                $ts = Get-Date -Format "HH:mm:ss.fff"
+                $maxRetries = 8; $attempt = 0; $done = $false
+                while (-not $done) {
+                    $attempt++
+                    try {
+                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                        $null = Invoke-RestMethod -Uri "$customApi/purchaseOrdersDI" -Method Post -Headers $headers -Body $payloadJson -TimeoutSec 30
+                        $sw.Stop(); $times += $sw.ElapsedMilliseconds; $success++
+                        Add-Content -Path $tmpFile    -Value "200"
+                        Add-Content -Path $detailFile -Value "$BatchId,$ThreadLabel,PO,$ts,200,$($sw.ElapsedMilliseconds),$attempt,"
+                        $done = $true
+                    } catch {
+                        $sw.Stop()
+                        $statusCode = 0; try { $statusCode = [int]$_.Exception.Response.StatusCode.value__ } catch { }
+                        $errBody = ($_.ErrorDetails.Message -replace '"','''' -replace ',',';' -replace "`n"," " -replace "`r","")
+                        if ($statusCode -eq 409 -and $attempt -lt $maxRetries) {
+                            # Exponential backoff + random jitter to avoid thundering herd
+                            $backoffMs = [math]::Min(5000, 250 * [math]::Pow(2, $attempt - 1))
+                            $jitterMs  = Get-Random -Minimum 0 -Maximum 500
+                            Start-Sleep -Milliseconds ($backoffMs + $jitterMs)
+                        } else {
+                            $errors++
+                            if ($statusCode -eq 429) { $rateLimits++; Start-Sleep -Seconds 2 }
+                            Add-Content -Path $tmpFile    -Value "$statusCode"
+                            Add-Content -Path $detailFile -Value "$BatchId,$ThreadLabel,PO,$ts,$statusCode,$($sw.ElapsedMilliseconds),$attempt,$errBody"
+                            $done = $true
+                        }
+                    }
+                }
+            }
+            $avgTime = if ($times.Count -gt 0) { ($times | Measure-Object -Average).Average } else { 0 }
+            return @{ Job = $JobNum + $SOThreads; Type = 'PO'; Success = $success; Errors = $errors; RateLimits = $rateLimits; AvgMs = [int]$avgTime }
+        } -ArgumentList $bcRoot, $companyId, $threadToken, $j, $payloadFile, $batchId, $tmpDir, $resultsDir, $threadLabel, $soThreads
+    }
+
+    Write-Host "All threads launched. Processing $totalTarget documents..." -ForegroundColor Yellow
+    Write-Host ""
+
+    # Progress loop — runs until all jobs complete (no deadline)
+    $lastPrint = [datetime]::MinValue
+    while (($jobs | Where-Object { $_.State -eq 'Running' }).Count -gt 0) {
+        $now = Get-Date
+        if (($now - $lastPrint).TotalSeconds -ge 2) {
+            $lastPrint = $now
+            $elapsed = ($now - $overallStart).TotalSeconds
+            $counts = @{}
+            Get-ChildItem -Path $tmpDir -Filter '*.txt' -ErrorAction SilentlyContinue | ForEach-Object {
+                Get-Content $_.FullName -ErrorAction SilentlyContinue | ForEach-Object {
+                    $counts[$_] = ($counts[$_] -as [int]) + 1
+                }
+            }
+            $ok   = $counts['200'] -as [int]
+            $pct  = if ($totalTarget -gt 0) { [math]::Round(100 * $ok / $totalTarget) } else { 0 }
+            $rate = if ($elapsed -gt 0) { [math]::Round($ok / $elapsed, 1) } else { 0 }
+            $eta  = if ($rate -gt 0) { [math]::Round(($totalTarget - $ok) / $rate) } else { '?' }
+            $nonOkStr = ($counts.Keys | Where-Object { $_ -ne '200' } | Sort-Object | ForEach-Object { $c = $counts[$_]; "${_}: $c" }) -join ' | '
+            $statusStr = if ($nonOkStr) { " | $nonOkStr" } else { '' }
+            Write-Host "--- $(Get-Date -Format 'HH:mm:ss') | 200: $ok / $totalTarget ($pct%) | ${rate}/s | ETA: ${eta}s${statusStr} ---" -ForegroundColor Cyan
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    Write-Host ""
+
+    $results = $jobs | Wait-Job | Receive-Job
+    $jobs | Remove-Job
+    Remove-Item -Path $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
+
+    $overallEnd      = Get-Date
+    $actualDuration  = ($overallEnd - $overallStart).TotalSeconds
+    $soResults       = $results | Where-Object Type -eq 'SO'
+    $poResults       = $results | Where-Object Type -eq 'PO'
+    $totalSo         = ($soResults | Measure-Object -Property Success -Sum).Sum
+    $totalPo         = ($poResults | Measure-Object -Property Success -Sum).Sum
+    $totalDocs       = $totalSo + $totalPo
+    $totalErrors     = ($results | Measure-Object -Property Errors -Sum).Sum
+    $totalRL         = ($results | Measure-Object -Property RateLimits -Sum).Sum
+    $throughput      = [math]::Round($totalDocs / $actualDuration, 2)
+    $soRate          = [math]::Round($totalSo / $actualDuration, 2)
+    $poRate          = [math]::Round($totalPo / $actualDuration, 2)
+
+    Write-Host "=== BATCH RESULTS ===" -ForegroundColor Cyan
+    Write-Host "Duration:        $([math]::Round($actualDuration, 1))s" -ForegroundColor White
+    Write-Host "Total Documents: $totalDocs ($totalSo SO + $totalPo PO)" -ForegroundColor White
+    Write-Host "Total Lines:     $($totalDocs * $LinesPerDoc)" -ForegroundColor White
+    $successDenom = [math]::Max(1, $totalDocs + $totalErrors)
+    Write-Host "Success Rate:    $([math]::Round(100 * $totalDocs / $successDenom, 1))%" -ForegroundColor $(if ($totalErrors -gt 5) { 'Yellow' } else { 'Green' })
+    Write-Host "Errors:          $totalErrors" -ForegroundColor $(if ($totalErrors -gt 0) { 'Red' } else { 'Green' })
+    Write-Host "Rate Limits:     $totalRL (429 errors)" -ForegroundColor $(if ($totalRL -gt 0) { 'Yellow' } else { 'Green' })
+    Write-Host ""
+    Write-Host "Throughput:      $throughput docs/sec" -ForegroundColor Magenta
+    Write-Host "  SO:            $soRate docs/sec ($totalSo docs)" -ForegroundColor Blue
+    Write-Host "  PO:            $poRate docs/sec ($totalPo docs)" -ForegroundColor DarkYellow
+    Write-Host ""
+    Write-Host "Per-thread breakdown:" -ForegroundColor Gray
+    Write-Host "  SO Threads:" -ForegroundColor Blue
+    foreach ($r in $soResults | Sort-Object Job) {
+        $tRate = [math]::Round($r.Success / $actualDuration, 2)
+        $rlStr = if ($r.RateLimits -gt 0) { " [429×$($r.RateLimits)]" } else { "" }
+        Write-Host "    T$($r.Job): $($r.Success) docs @ ${tRate}/s - Avg: $($r.AvgMs)ms$rlStr" -ForegroundColor Gray
+    }
+    Write-Host "  PO Threads:" -ForegroundColor DarkYellow
+    foreach ($r in $poResults | Sort-Object Job) {
+        $tRate = [math]::Round($r.Success / $actualDuration, 2)
+        $rlStr = if ($r.RateLimits -gt 0) { " [429×$($r.RateLimits)]" } else { "" }
+        Write-Host "    T$($r.Job): $($r.Success) docs @ ${tRate}/s - Avg: $($r.AvgMs)ms$rlStr" -ForegroundColor Gray
+    }
+    Write-Host ""
+    if ($totalRL -gt 0) {
+        Write-Host "HINT: Rate limits hit. Consider adding more Entra apps to the token pool." -ForegroundColor Yellow
+    }
+
+    # Save results
+    $timestamp   = Get-Date -Format "yyyyMMdd-HHmmss"
+    $summaryFile = Join-Path $resultsDir "batch-$timestamp.csv"
+    [PSCustomObject]@{
+        Timestamp    = $overallStart.ToString("yyyy-MM-dd HH:mm:ss")
+        Duration_Sec = $actualDuration
+        BatchId      = $batchId
+        DocCount     = $DocCount
+        SO_Threads   = $soThreads
+        PO_Threads   = $poThreads
+        LinesPerDoc  = $LinesPerDoc
+        Total_Docs   = $totalDocs
+        SO_Docs      = $totalSo
+        PO_Docs      = $totalPo
+        Errors       = $totalErrors
+        RateLimits   = $totalRL
+        Throughput   = $throughput
+        SO_Rate      = $soRate
+        PO_Rate      = $poRate
+        AppPoolSize  = $tokenPool.Count
+    } | Export-Csv -Path $summaryFile -NoTypeInformation
+    Write-Host "Summary saved: $summaryFile" -ForegroundColor Gray
+
+    $detailFile   = Join-Path $resultsDir "batch-detail-$timestamp.csv"
+    $partialFiles = Get-ChildItem -Path $resultsDir -Filter "batch-partial-$batchId-*.csv" | Sort-Object Name
+    if ($partialFiles) {
+        "BatchId,Thread,Type,Timestamp,StatusCode,ElapsedMs,Success" | Set-Content -Path $detailFile
+        foreach ($f in $partialFiles) { Get-Content $f.FullName | Select-Object -Skip 1 | Add-Content -Path $detailFile }
+        $partialFiles | Remove-Item -Force
+        Write-Host "Details saved: $detailFile" -ForegroundColor Gray
+    }
+    Write-Host ""
+}
+
 # ─────────────────────────── Main ───────────────────────────
 
 switch ($Mode) {
@@ -1428,8 +1902,9 @@ switch ($Mode) {
     "Concurrent" { Start-ConcurrentTest }
     "Race"       { Start-RaceTest }
     "Endurance"  { Start-EnduranceTest }
-    "DeepInsert"  { Start-DeepInsertTest }
+    "DeepInsert" { Start-DeepInsertTest }
     "Sprint"     { Start-SprintTest }
+    "Batch"      { Start-BatchTest }
 }
 
 Write-Host ""
