@@ -54,6 +54,8 @@ param(
     [int]$EnduranceMaxMinutes = 120,
     [int]$SprintDurationSeconds = 60,
     [int]$SprintThreads = 10,
+    [int]$SOThreads = -1,
+    [int]$POThreads = -1,
     [int]$RetryCount = 3,
     [int]$RetryDelaySeconds = 10,
     [switch]$DebugLog,
@@ -710,11 +712,17 @@ function Start-SprintTest {
     $deadline = $overallStart.AddSeconds($SprintDurationSeconds)
     $jobs = @()
 
-    # Split threads: half for SO, half for PO
-    $soThreads = [math]::Ceiling($SprintThreads / 2.0)
-    $poThreads = $SprintThreads - $soThreads
+    # Split threads: use explicit SOThreads/POThreads if provided (-1 = auto), 0 = none
+    if ($SOThreads -ge 0 -or $POThreads -ge 0) {
+        $soThreads = if ($SOThreads -ge 0) { $SOThreads } else { [math]::Ceiling($SprintThreads / 2.0) }
+        $poThreads = if ($POThreads -ge 0) { $POThreads } else { $SprintThreads - $soThreads }
+    } else {
+        $soThreads = [math]::Ceiling($SprintThreads / 2.0)
+        $poThreads = $SprintThreads - $soThreads
+    }
+    $totalThreads = $soThreads + $poThreads
 
-    Write-Host "Launching threads: $soThreads SO + $poThreads PO = $SprintThreads total" -ForegroundColor Yellow
+    Write-Host "Launching threads: $soThreads SO + $poThreads PO = $totalThreads total" -ForegroundColor Yellow
     Write-Host ""
 
     # Launch SO threads

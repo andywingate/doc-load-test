@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint Test Report - Multi-App 2026-03-29</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 2rem; 
+            border-radius: 12px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { 
+            color: #2c3e50; 
+            margin-bottom: 0.5rem; 
+            font-size: 2.5rem;
+            border-bottom: 4px solid #f5576c;
+            padding-bottom: 1rem;
+        }
+        h2 {
+            color: #2c3e50;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            background: #27ae60;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-left: 1rem;
+        }
+        .badge.warning {
+            background: #e67e22;
+        }
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 1.5rem; 
+            margin-bottom: 2rem; 
+        }
+        .stat-card { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+            color: white; 
+            padding: 1.5rem; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-label { 
+            font-size: 0.9rem; 
+            opacity: 0.9; 
+            margin-bottom: 0.5rem;
+        }
+        .stat-value { 
+            font-size: 2rem; 
+            font-weight: bold; 
+        }
+        .stat-unit { 
+            font-size: 1rem; 
+            opacity: 0.8; 
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .comparison-table th {
+            background: #34495e;
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+        .comparison-table th.so-col {
+            background: #3498db;
+            color: white;
+        }
+        .comparison-table th.po-col {
+            background: #e67e22;
+            color: white;
+        }
+        .comparison-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        .comparison-table tr:hover {
+            background: #f8f9fa;
+        }
+        .comparison-table .metric-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .comparison-table .so-col {
+            background: #e8f4f8;
+        }
+        .comparison-table .po-col {
+            background: #fff3e0;
+        }
+        .thread-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-size: 0.9rem;
+        }
+        .thread-table th {
+            background: #2c3e50;
+            color: white;
+            padding: 0.8rem;
+            text-align: center;
+            font-weight: 600;
+        }
+        .thread-table td {
+            padding: 0.8rem;
+            border-bottom: 1px solid #ecf0f1;
+            text-align: center;
+        }
+        .thread-table tr:hover {
+            background: #f8f9fa;
+        }
+        .thread-table .thread-col {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .chart-container { 
+            margin: 2rem 0; 
+            padding: 1.5rem; 
+            background: #f8f9fa; 
+            border-radius: 8px;
+        }
+        .chart-title { 
+            font-size: 1.3rem; 
+            font-weight: 600; 
+            color: #2c3e50; 
+            margin-bottom: 1rem;
+        }
+        canvas { 
+            max-height: 400px; 
+        }
+        .highlight {
+            background: #d4edda;
+            padding: 1rem;
+            border-left: 4px solid #28a745;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+        .highlight strong {
+            color: #155724;
+        }
+        .highlight.warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+        .highlight.warning strong {
+            color: #856404;
+        }
+        .info-box {
+            background: #e7f3ff;
+            padding: 1.5rem;
+            border-left: 4px solid #2196F3;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+        .info-box h3 {
+            color: #0d47a1;
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+        .info-box p {
+            color: #1565c0;
+            line-height: 1.6;
+            margin-bottom: 0.5rem;
+        }
+        .info-box ul {
+            margin-left: 1.5rem;
+            color: #1565c0;
+        }
+        .back-button {
+            display: inline-block;
+            background: white;
+            color: #f5576c;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button">← Back to Reports</a>
+        <h1>🏃 Sprint Test - Multi-App (5+5 threads) <span class="badge warning">3 ERRORS</span></h1>
+        <div class="subtitle">
+            2026-03-29 10:40:50 | 60-second sprint test
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Documents</div>
+                <div class="stat-value">726</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Sales Orders</div>
+                <div class="stat-value">161 <span class="stat-unit">@ 2.61/s</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Purchase Orders</div>
+                <div class="stat-value">565 <span class="stat-unit">@ 9.16/s</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Lines</div>
+                <div class="stat-value">2,178</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Overall Throughput</div>
+                <div class="stat-value">11.77/s</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Success Rate</div>
+                <div class="stat-value">99.6%</div>
+            </div>
+        </div>
+
+        <div class="highlight warning">
+            <strong>⚠️ Minor Errors:</strong> Multi-app configuration with separate Entra identities achieved 11.77 docs/sec throughput with 3 transient errors (99.6% success rate). No rate limiting detected despite higher throughput than single-app tests.
+        </div>
+
+        <div class="info-box">
+            <h3>ℹ️ Multi-App Architecture</h3>
+            <p><strong>Separate Entra Identities:</strong> SO threads (5) and PO threads (5) use different Entra application credentials, isolating authentication and API quota management.</p>
+            <p><strong>Deep Insert Method:</strong> Each API call creates header + 3 lines in a single request, reducing API calls by 75% vs traditional approach.</p>
+            <p><strong>Goal:</strong> Test whether separate Entra apps improve isolation and allow higher concurrent throughput without cross-contamination of rate limits.</p>
+            <p><strong>Result:</strong> Multi-app architecture achieved 13% higher throughput (11.77 vs 10.38 docs/sec) compared to single-app baseline, with 3 transient errors but zero rate limits.</p>
+        </div>
+
+        <h2>📊 Performance Analysis</h2>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th class="so-col">Sales Orders (SO)</th>
+                    <th class="po-col">Purchase Orders (PO)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="metric-name">Documents Created</td>
+                    <td class="so-col">161</td>
+                    <td class="po-col">565</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Throughput</td>
+                    <td class="so-col">2.61 docs/sec</td>
+                    <td class="po-col">9.16 docs/sec</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Average Response Time</td>
+                    <td class="so-col">1,851ms (~1.9s)</td>
+                    <td class="po-col">518ms</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Errors</td>
+                    <td class="so-col">2</td>
+                    <td class="po-col">0</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Rate Limits</td>
+                    <td class="so-col">0</td>
+                    <td class="po-col">0</td>
+                </tr>
+                <tr>
+                    <td class="metric-name">Per-Thread Rate</td>
+                    <td class="so-col">~0.52 docs/sec/thread</td>
+                    <td class="po-col">~1.83 docs/sec/thread</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>🧵 Thread-Level Statistics</h2>
+        <table class="thread-table">
+            <thead>
+                <tr>
+                    <th>Thread</th>
+                    <th>Type</th>
+                    <th>Success</th>
+                    <th>Errors</th>
+                    <th>Rate Limits</th>
+                    <th>Avg Response (ms)</th>
+                    <th>Rate (docs/sec)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="thread-col">1</td>
+                    <td>SO</td>
+                    <td>32</td>
+                    <td>1</td>
+                    <td>0</td>
+                    <td>1,853</td>
+                    <td>0.52</td>
+                </tr>
+                <tr>
+                    <td class="thread-col">1</td>
+                    <td>PO</td>
+                    <td>113</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>520</td>
+                    <td>1.83</td>
+                </tr>
+                <tr>
+                    <td class="thread-col">2</td>
+                    <td>SO</td>
+                    <td>32</td>
+                    <td>1</td>
+                    <td>0</td>
+                    <td>1,860</td>
+                    <td>0.52</td>
+                </tr>
+                <tr>
+                    <td class="thread-col">2</td>
+                    <td>PO</td>
+                    <td>114</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>516</td>
+                    <td>1.85</td>
+                </tr>
+                <tr>
+                    <td class="thread-col">3</td>
+                    <td>SO</td>
+                    <td>32</td>
+                    <td>1</td>
+                    <td>0</td>
+                    <td>1,832</td>
+                    <td>0.52</td>
+                </tr>
+                <tr>
+                    <td class="thread-col">3</td>
+                    <td>PO</td>
+                    <td>113</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>516</td>
+                    <td>1.83</td>
+                </tr>
+                <tr>
+                    <td class="thread-col">4</td>
+                    <td>SO</td>
+                    <td>32</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>1,886</td>
+                    <td>0.52</td>
+                </tr>
+                <tr>
+                    <td class="thread-col">4</td>
+                    <td>PO</td>
+                    <td>113</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>517</td>
+                    <td>1.83</td>
+                </tr>
+                <tr>
+                    <td class="thread-col">5</td>
+                    <td>SO</td>
+                    <td>33</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>1,834</td>
+                    <td>0.53</td>
+                </tr>
+                <tr>
+                    <td class="thread-col">5</td>
+                    <td>PO</td>
+                    <td>112</td>
+                    <td>0</td>
+                    <td>0</td>
+                    <td>519</td>
+                    <td>1.82</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="chart-container">
+            <div class="chart-title">📊 Documents Created by Thread</div>
+            <canvas id="threadChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">⏱️ Average Response Time by Thread</div>
+            <canvas id="responseChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">🎯 SO vs PO Throughput Comparison</div>
+            <canvas id="comparisonChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">⚖️ Thread Load Distribution</div>
+            <canvas id="distributionChart"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // Thread documents chart
+        const threadCtx = document.getElementById('threadChart').getContext('2d');
+        new Chart(threadCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Thread 1', 'Thread 2', 'Thread 3', 'Thread 4', 'Thread 5'],
+                datasets: [{
+                    label: 'Sales Orders',
+                    data: [32, 32, 32, 32, 33],
+                    backgroundColor: '#3498db',
+                    borderColor: '#2980b9',
+                    borderWidth: 2
+                }, {
+                    label: 'Purchase Orders',
+                    data: [113, 114, 113, 113, 112],
+                    backgroundColor: '#e67e22',
+                    borderColor: '#d35400',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Documents Created' }
+                    }
+                }
+            }
+        });
+
+        // Response time chart
+        const responseCtx = document.getElementById('responseChart').getContext('2d');
+        new Chart(responseCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Thread 1', 'Thread 2', 'Thread 3', 'Thread 4', 'Thread 5'],
+                datasets: [{
+                    label: 'SO Avg Response (ms)',
+                    data: [1853, 1860, 1832, 1886, 1834],
+                    backgroundColor: '#3498db',
+                    borderColor: '#2980b9',
+                    borderWidth: 2
+                }, {
+                    label: 'PO Avg Response (ms)',
+                    data: [520, 516, 516, 517, 519],
+                    backgroundColor: '#e67e22',
+                    borderColor: '#d35400',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Average Response Time (ms)' }
+                    }
+                }
+            }
+        });
+
+        // Comparison chart
+        const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+        new Chart(comparisonCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Sales Orders (161)', 'Purchase Orders (565)'],
+                datasets: [{
+                    data: [161, 565],
+                    backgroundColor: ['#3498db', '#e67e22'],
+                    borderColor: ['#2980b9', '#d35400'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = 726;
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + percentage + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Distribution chart
+        const distributionCtx = document.getElementById('distributionChart').getContext('2d');
+        new Chart(distributionCtx, {
+            type: 'radar',
+            data: {
+                labels: ['Thread 1', 'Thread 2', 'Thread 3', 'Thread 4', 'Thread 5'],
+                datasets: [{
+                    label: 'SO Distribution',
+                    data: [32, 32, 32, 32, 33],
+                    backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                    borderColor: '#3498db',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#3498db'
+                }, {
+                    label: 'PO Distribution',
+                    data: [113, 114, 113, 113, 112],
+                    backgroundColor: 'rgba(230, 126, 34, 0.2)',
+                    borderColor: '#e67e22',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#e67e22'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Documents per Thread' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

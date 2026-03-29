@@ -149,19 +149,23 @@
         <div class="stats-summary">
             <div class="summary-card">
                 <div class="label">Total Tests Run</div>
-                <div class="value">5</div>
+                <div class="value">8</div>
             </div>
             <div class="summary-card">
                 <div class="label">Total Documents</div>
-                <div class="value">22,800</div>
+                <div class="value">24,871</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Total Lines</div>
+                <div class="value">74,613</div>
             </div>
             <div class="summary-card">
                 <div class="label">Total Test Time</div>
-                <div class="value">244 min</div>
+                <div class="value">247 min</div>
             </div>
             <div class="summary-card">
                 <div class="label">Success Rate</div>
-                <div class="value">100%</div>
+                <div class="value">99.9%</div>
             </div>
         </div>
 
@@ -174,6 +178,7 @@
                     <th>Method</th>
                     <th>Duration</th>
                     <th>Documents</th>
+                    <th>Lines</th>
                     <th>Throughput</th>
                     <th>Success</th>
                     <th>App Ver</th>
@@ -182,12 +187,49 @@
             </thead>
             <tbody>
                 <tr>
+                    <td>2026-03-29 11:14</td>
+                    <td><span class="badge badge-sprint">Sprint</span></td>
+                    <td>Multi-App (10 SO + 5 PO)</td>
+                    <td>64s</td>
+                    <td>656</td>
+                    <td>1,968</td>
+                    <td>10.20/s</td>
+                    <td>100%</td>
+                    <td>v1.0.0.5</td>
+                    <td><a href="sprint-report-20260329-111435.html" class="test-link">View →</a></td>
+                </tr>
+                <tr>
+                    <td>2026-03-29 10:50</td>
+                    <td><span class="badge badge-sprint">Sprint</span></td>
+                    <td>Multi-App (5 SO + 5 PO)</td>
+                    <td>62s</td>
+                    <td>689</td>
+                    <td>2,067</td>
+                    <td>11.09/s</td>
+                    <td>100%</td>
+                    <td>v1.0.0.5</td>
+                    <td><a href="sprint-report-20260329-105035.html" class="test-link">View →</a></td>
+                </tr>
+                <tr>
+                    <td>2026-03-29 10:40</td>
+                    <td><span class="badge badge-sprint">Sprint</span></td>
+                    <td>Multi-App (5 SO + 5 PO)</td>
+                    <td>62s</td>
+                    <td>726</td>
+                    <td>2,178</td>
+                    <td><strong>11.77/s</strong></td>
+                    <td>99.6%</td>
+                    <td>v1.0.0.5</td>
+                    <td><a href="sprint-report-20260329-104050.html" class="test-link">View →</a></td>
+                </tr>
+                <tr>
                     <td>2026-03-29 10:17</td>
                     <td><span class="badge badge-sprint">Sprint</span></td>
                     <td>Deep Insert (10 threads)</td>
                     <td>60s</td>
                     <td>639</td>
-                    <td><strong>10.38/s</strong></td>
+                    <td>1,917</td>
+                    <td>10.38/s</td>
                     <td>100%</td>
                     <td>v1.0.0.5</td>
                     <td><a href="sprint-report-20260329-101755.html" class="test-link">View →</a></td>
@@ -198,6 +240,7 @@
                     <td>Deep Insert (cyclic)</td>
                     <td>120m</td>
                     <td>10,318</td>
+                    <td>30,954</td>
                     <td>1.43/s</td>
                     <td>100%</td>
                     <td>v1.0.0.5</td>
@@ -209,6 +252,7 @@
                     <td>Deep Insert (cyclic)</td>
                     <td>2m</td>
                     <td>418</td>
+                    <td>1,254</td>
                     <td>3.48/s</td>
                     <td>100%</td>
                     <td>v1.0.0.5</td>
@@ -220,6 +264,7 @@
                     <td>Deep Insert (initial)</td>
                     <td>2m</td>
                     <td>406</td>
+                    <td>1,218</td>
                     <td>3.38/s</td>
                     <td>100%</td>
                     <td>v1.0.0.5</td>
@@ -231,6 +276,7 @@
                     <td>Traditional API</td>
                     <td>120m</td>
                     <td>11,019</td>
+                    <td>33,057</td>
                     <td>1.53/s</td>
                     <td>100%</td>
                     <td>v1.0.0.5</td>
@@ -267,10 +313,10 @@
         new Chart(throughputCtx, {
             type: 'line',
             data: {
-                labels: ['Mar 28 09:17', 'Mar 28 23:12', 'Mar 28 23:43', 'Mar 29 00:08', 'Mar 29 10:17'],
+                labels: ['Mar 28 09:17', 'Mar 28 23:12', 'Mar 28 23:43', 'Mar 29 00:08', 'Mar 29 10:17', 'Mar 29 10:40', 'Mar 29 10:50', 'Mar 29 11:14'],
                 datasets: [{
                     label: 'Throughput (docs/sec)',
-                    data: [1.53, 3.38, 3.48, 1.43, 10.38],
+                    data: [1.53, 3.38, 3.48, 1.43, 10.38, 11.77, 11.09, 10.20],
                     borderColor: '#667eea',
                     backgroundColor: 'rgba(102, 126, 234, 0.1)',
                     tension: 0.3,
@@ -308,15 +354,18 @@
         new Chart(documentsCtx, {
             type: 'bar',
             data: {
-                labels: ['Endurance\n(Traditional)', 'Deep Insert\n(Initial)', 'Deep Insert\n(2-min)', 'Endurance\n(Deep Insert)', 'Sprint\n(10 threads)'],
+                labels: ['Endurance\n(Traditional)', 'Deep Insert\n(Initial)', 'Deep Insert\n(2-min)', 'Endurance\n(Deep Insert)', 'Sprint\n(10 threads)', 'Multi-App\n(5+5)', 'Multi-App\n(5+5)', 'Multi-App\n(10+5)'],
                 datasets: [{
                     label: 'Documents Created',
-                    data: [11019, 406, 418, 10318, 639],
+                    data: [11019, 406, 418, 10318, 639, 726, 689, 656],
                     backgroundColor: [
                         '#3498db',
                         '#27ae60',
                         '#27ae60',
                         '#3498db',
+                        '#f093fb',
+                        '#f093fb',
+                        '#f093fb',
                         '#f093fb'
                     ],
                     borderColor: [
@@ -324,6 +373,9 @@
                         '#229954',
                         '#229954',
                         '#2980b9',
+                        '#d8479f',
+                        '#d8479f',
+                        '#d8479f',
                         '#d8479f'
                     ],
                     borderWidth: 2
@@ -370,6 +422,13 @@
                     borderColor: '#f093fb',
                     borderWidth: 2,
                     pointBackgroundColor: '#f093fb'
+                }, {
+                    label: 'Multi-App Sprint',
+                    data: [11.7, 0.7, 1, 10, 4],
+                    backgroundColor: 'rgba(155, 89, 182, 0.2)',
+                    borderColor: '#9b59b6',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#9b59b6'
                 }]
             },
             options: {
@@ -391,11 +450,11 @@
         new Chart(methodCtx, {
             type: 'doughnut',
             data: {
-                labels: ['Deep Insert (3 tests)', 'Traditional (1 test)', 'Sprint Concurrent (1 test)'],
+                labels: ['Sprint Tests (4)', 'Deep Insert (3)', 'Traditional (1)'],
                 datasets: [{
-                    data: [3, 1, 1],
-                    backgroundColor: ['#27ae60', '#3498db', '#f093fb'],
-                    borderColor: ['#229954', '#2980b9', '#d8479f'],
+                    data: [4, 3, 1],
+                    backgroundColor: ['#f093fb', '#27ae60', '#3498db'],
+                    borderColor: ['#d8479f', '#229954', '#2980b9'],
                     borderWidth: 2
                 }]
             },
