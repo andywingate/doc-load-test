@@ -211,8 +211,38 @@
                 <h2 class="section-title">📊 Test Reports</h2>
                 
                 <div class="report-grid">
-                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-111435.html'">
+                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-114739.html'">
                         <span class="badge">LATEST</span>
+                        <h3>🔍 SO-Only Sprint Test (5 Threads)</h3>
+                        <div class="date">📅 2026-03-29 11:47 (62 seconds)</div>
+                        
+                        <div class="stats">
+                            <div class="stat">
+                                <div class="label">Documents</div>
+                                <div class="value">129</div>
+                            </div>
+                            <div class="stat">
+                                <div class="label">Throughput</div>
+                                <div class="value" style="color: #e67e22;">2.08/s</div>
+                            </div>
+                            <div class="stat">
+                                <div class="label">SO Threads</div>
+                                <div class="value">5</div>
+                            </div>
+                            <div class="stat">
+                                <div class="label">Success</div>
+                                <div class="value">100%</div>
+                            </div>
+                        </div>
+                        
+                        <div class="description">
+                            Sales Orders ONLY test (no POs). Shows SO API bottleneck: 2.08 docs/sec vs 8-9 docs/sec for PO. SO has more business logic overhead. ⚠️ Performance anomaly detected.
+                        </div>
+                        
+                        <a href="sprint-report-20260329-114739.html" class="view-button">View Full Report →</a>
+                    </div>
+
+                    <div class="report-card" onclick="window.location.href='sprint-report-20260329-111435.html'">
                         <h3>🏃 Sprint Test - Multi-App (10 SO + 5 PO)</h3>
                         <div class="date">📅 2026-03-29 11:14 (64 seconds)</div>
                         
