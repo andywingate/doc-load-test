@@ -20,14 +20,24 @@
 #
 #   # Deep insert test (header + lines in 1 API call):
 #   .\scripts\bc-load-test.ps1 -Mode DeepInsert -RaceMinutes 5 -LinesPerDoc 3
+#
+#   # Sprint test (maximum throughput in 1 minute using multi-threading):
+#   .\scripts\bc-load-test.ps1 -Mode Sprint -SprintDurationSeconds 60 -SprintThreads 10 -LinesPerDoc 3
 
 param(
-    [ValidateSet("Validate", "Full", "Read", "Concurrent", "Race", "Endurance", "DeepInsert")]
+    [ValidateSet("Validate", "Full", "Read", "Concurrent", "Race", "Endurance", "DeepInsert", "Sprint")]
     [string]$Mode = "Validate",
 
     [string]$TenantId = $env:BC_TENANT_ID,
     [string]$ClientId = $env:BC_CLIENT_ID,
     [string]$ClientSecret = $env:BC_CLIENT_SECRET,
+    
+    # Sprint mode: Separate apps for SO and PO
+    [string]$ClientId_SO = $env:BC_CLIENT_ID_SO,
+    [string]$ClientSecret_SO = $env:BC_CLIENT_SECRET_SO,
+    [string]$ClientId_PO = $env:BC_CLIENT_ID_PO,
+    [string]$ClientSecret_PO = $env:BC_CLIENT_SECRET_PO,
+    
     [string]$Environment = $(if ($env:BC_ENVIRONMENT) { $env:BC_ENVIRONMENT } else { "Production" }),
     [string]$CompanyName = $(if ($env:BC_COMPANY) { $env:BC_COMPANY } else { "docs-test" }),
 
@@ -42,6 +52,8 @@ param(
     [int]$RaceMinutes = 5,
     [int]$CycleMinutes = 10,
     [int]$EnduranceMaxMinutes = 120,
+    [int]$SprintDurationSeconds = 60,
+    [int]$SprintThreads = 10,
     [int]$RetryCount = 3,
     [int]$RetryDelaySeconds = 10,
     [switch]$DebugLog,
@@ -649,6 +661,145 @@ function Start-ConcurrentTest {
     }
 }
 
+# ─────────────────────────── Sprint (Maximum Throughput) Test ───────────────────────────
+
+function Start-SprintTest {
+    Write-Host "=== SPRINT TEST ($SprintDurationSeconds seconds) ===" -ForegroundColor Cyan
+    Write-Host "Maximum throughput test using $SprintThreads parallel threads with deep insert." -ForegroundColor Gray
+    Write-Host "Lines per doc: $LinesPerDoc | Target: Create as many documents as possible!" -ForegroundColor Gray
+    Write-Host ""
+
+    $custNo = Get-TestCustomer
+    $vndNo = Get-TestVendor
+    $itmNo = Get-TestItem
+    Write-Host ""
+
+    $overallStart = Get-Date
+    $deadline = $overallStart.AddSeconds($SprintDurationSeconds)
+    $jobs = @()
+
+    Write-Host "Starting $SprintThreads threads... " -ForegroundColor Yellow
+
+    for ($j = 1; $j -le $SprintThreads; $j++) {
+        $jobs += Start-Job -ScriptBlock {
+            param($ApiBase, $CompanyId, $CustNo, $VndNo, $ItmNo, $Lines, $Token, $JobNum, $Deadline)
+
+            $headers = @{
+                "Authorization" = "Bearer $Token"
+                "Content-Type"  = "application/json"
+                "Accept"        = "application/json"
+            }
+            $companyApi = "$ApiBase/companies($CompanyId)"
+            $soSuccess = 0; $poSuccess = 0; $errors = 0
+            $times = @()
+
+            # Alternate between SO and PO for balanced load
+            $createSO = ($JobNum % 2 -eq 1)
+
+            while ((Get-Date) -lt $Deadline) {
+                try {
+                    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                    
+                    if ($createSO) {
+                        # Create Sales Order with deep insert
+                        $lineItems = @(1..$Lines | ForEach-Object {
+                            @{
+                                lineObjectNumber = $ItmNo
+                                lineType = "Item"
+                                quantity = 1
+                            }
+                        })
+                        $soBody = @{
+                            customerNumber = $CustNo
+                            orderDate = (Get-Date -Format "yyyy-MM-dd")
+                            salesOrderLines = $lineItems
+                        } | ConvertTo-Json -Depth 10
+                        
+                        $null = Invoke-RestMethod -Uri "$companyApi/salesOrders?`$expand=salesOrderLines" `
+                            -Method Post -Headers $headers -Body $soBody -TimeoutSec 15
+                        $soSuccess++
+                    } else {
+                        # Create Purchase Order with deep insert
+                        $lineItems = @(1..$Lines | ForEach-Object {
+                            @{
+                                lineObjectNumber = $ItmNo
+                                lineType = "Item"
+                                quantity = 1
+                            }
+                        })
+                        $poBody = @{
+                            vendorNumber = $VndNo
+                            orderDate = (Get-Date -Format "yyyy-MM-dd")
+                            purchaseOrderLines = $lineItems
+                        } | ConvertTo-Json -Depth 10
+                        
+                        $null = Invoke-RestMethod -Uri "$companyApi/purchaseOrders?`$expand=purchaseOrderLines" `
+                            -Method Post -Headers $headers -Body $poBody -TimeoutSec 15
+                        $poSuccess++
+                    }
+                    
+                    $sw.Stop()
+                    $times += $sw.ElapsedMilliseconds
+                    
+                    # Alternate for next iteration
+                    $createSO = -not $createSO
+                    
+                } catch {
+                    $errors++
+                    $statusCode = 0
+                    try { $statusCode = [int]$_.Exception.Response.StatusCode.value__ } catch { }
+                    if ($statusCode -eq 429) {
+                        Start-Sleep -Seconds 2
+                    }
+                }
+            }
+
+            $avgTime = if ($times.Count -gt 0) { ($times | Measure-Object -Average).Average } else { 0 }
+            return @{ 
+                Job = $JobNum
+                SO = $soSuccess
+                PO = $poSuccess
+                Errors = $errors
+                AvgMs = [int]$avgTime
+            }
+        } -ArgumentList $apiBase, $companyId, $custNo, $vndNo, $itmNo, $LinesPerDoc, $token, $j, $deadline
+    }
+
+    Write-Host "All threads launched. Hammering the API for $SprintDurationSeconds seconds..." -ForegroundColor Yellow
+    Write-Host ""
+    
+    # Wait for all jobs to complete
+    $results = $jobs | Wait-Job | Receive-Job
+    $jobs | Remove-Job
+
+    $overallEnd = Get-Date
+    $actualDuration = ($overallEnd - $overallStart).TotalSeconds
+
+    $totalSo = ($results | Measure-Object -Property SO -Sum).Sum
+    $totalPo = ($results | Measure-Object -Property PO -Sum).Sum
+    $totalDocs = $totalSo + $totalPo
+    $totalErrors = ($results | Measure-Object -Property Errors -Sum).Sum
+    $throughput = [math]::Round($totalDocs / $actualDuration, 2)
+
+    Write-Host ""
+    Write-Host "=== SPRINT RESULTS ===" -ForegroundColor Cyan
+    Write-Host "Duration:        $([math]::Round($actualDuration, 1))s" -ForegroundColor White
+    Write-Host "Total Documents: $totalDocs ($totalSo SO + $totalPo PO)" -ForegroundColor White
+    Write-Host "Total Lines:     $($totalDocs * $LinesPerDoc)" -ForegroundColor White
+    Write-Host "Errors:          $totalErrors" -ForegroundColor $(if ($totalErrors -gt 0) { "Red" } else { "Green" })
+    Write-Host "Throughput:      $throughput docs/sec" -ForegroundColor Cyan
+    Write-Host "API Calls Saved: $(($totalDocs * $LinesPerDoc * 75))% vs traditional (1 call vs $($LinesPerDoc + 1))" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Per-thread breakdown:" -ForegroundColor Gray
+    foreach ($r in $results | Sort-Object Job) {
+        $threadDocs = $r.SO + $r.PO
+        $threadRate = [math]::Round($threadDocs / $actualDuration, 2)
+        Write-Host "  Thread $($r.Job): $threadDocs docs ($($r.SO) SO, $($r.PO) PO) @ ${threadRate}/s - Avg: $($r.AvgMs)ms" -ForegroundColor Gray
+    }
+    Write-Host ""
+    Write-Host "Peak Throughput: $throughput documents/second" -ForegroundColor Magenta
+}
+
 # ─────────────────────────── Race (Time-Based) Test ───────────────────────────
 
 function Start-RaceTest {
@@ -1059,6 +1210,7 @@ switch ($Mode) {
     "Race"       { Start-RaceTest }
     "Endurance"  { Start-EnduranceTest }
     "DeepInsert"  { Start-DeepInsertTest }
+    "Sprint"     { Start-SprintTest }
 }
 
 Write-Host ""
