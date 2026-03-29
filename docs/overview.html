@@ -519,8 +519,11 @@
                 },
                 scales: {
                     y: {
-                        beginAtZero: true,
-                        title: { display: true, text: 'Total Documents' }
+                        type: 'logarithmic',
+                        title: { display: true, text: 'Total Documents (log scale)' },
+                        ticks: {
+                            callback: value => value.toLocaleString()
+                        }
                     }
                 }
             }
