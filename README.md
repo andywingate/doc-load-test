@@ -66,6 +66,80 @@ This creates 1 Sales Order and 1 Purchase Order to confirm the API connection wo
 .\scripts\bc-load-test.ps1 -Mode Full -SalesOrders 100 -PurchaseOrders 100 -LinesPerDoc 5 -ClientSecret "your-secret"
 ```
 
+## Test Modes
+
+The script supports multiple test modes:
+
+### Validate
+Quick smoke test — creates 1 SO and 1 PO with lines to verify connectivity.
+```powershell
+.\scripts\bc-load-test.ps1 -Mode Validate
+```
+
+### Full
+Creates a specified number of documents sequentially.
+```powershell
+.\scripts\bc-load-test.ps1 -Mode Full -SalesOrders 100 -PurchaseOrders 100 -LinesPerDoc 5
+```
+
+### Read
+Read-only stress test — fetches existing documents.
+```powershell
+.\scripts\bc-load-test.ps1 -Mode Read
+```
+
+### Concurrent
+Multi-threaded document creation using PowerShell jobs.
+```powershell
+.\scripts\bc-load-test.ps1 -Mode Concurrent -ConcurrentJobs 5 -SalesOrders 50
+```
+
+### Race
+Time-based test — creates as many documents as possible in a fixed time window.
+```powershell
+.\scripts\bc-load-test.ps1 -Mode Race -RaceMinutes 5 -LinesPerDoc 3
+```
+
+### Endurance
+Long-running cyclic test — alternates between SO and PO creation phases for hours.
+```powershell
+.\scripts\bc-load-test.ps1 -Mode Endurance -CycleMinutes 10 -EnduranceMaxMinutes 120 -UseDeepInsert
+```
+
+### DeepInsert
+Race test using deep insert API (header + lines in 1 call) — 75% fewer API calls.
+```powershell
+.\scripts\bc-load-test.ps1 -Mode DeepInsert -RaceMinutes 5 -LinesPerDoc 3
+```
+
+### Sprint (NEW)
+**Maximum throughput test** — uses multi-threading + deep insert to create as many documents as possible in 1 minute.
+
+**Single App Mode:**
+```powershell
+.\scripts\bc-load-test.ps1 -Mode Sprint -SprintDurationSeconds 60 -SprintThreads 10 -LinesPerDoc 3
+```
+
+**Dual App Mode (Recommended):**
+For maximum performance, create two separate Entra apps and configure them in `.env`:
+```bash
+BC_CLIENT_ID_SO=your-so-app-id
+BC_CLIENT_SECRET_SO=your-so-secret
+BC_CLIENT_ID_PO=your-po-app-id
+BC_CLIENT_SECRET_PO=your-po-secret
+```
+
+This gives:
+- SO threads use dedicated SO app (independent rate limit)
+- PO threads use dedicated PO app (independent rate limit)
+- True parallel execution without sharing rate limit quotas
+- 2x throughput potential vs single app
+
+Run with:
+```powershell
+.\scripts\bc-load-test.ps1 -Mode Sprint -SprintDurationSeconds 60 -SprintThreads 20 -LinesPerDoc 3
+```
+
 ## Custom API Endpoints
 
 The extension exposes custom API pages under:
@@ -87,15 +161,25 @@ All script parameters can be overridden on the command line:
 
 | Parameter | Default | Description |
 |---|---|---|
-| `-Mode` | `Validate` | Test mode: `Validate`, `Full`, `Read`, `Concurrent` |
+| `-Mode` | `Validate` | Test mode: `Validate`, `Full`, `Read`, `Concurrent`, `Race`, `Endurance`, `DeepInsert`, `Sprint` |
 | `-SalesOrders` | 10 | Number of Sales Orders to create |
 | `-PurchaseOrders` | 10 | Number of Purchase Orders to create |
 | `-LinesPerDoc` | 3 | Lines per document |
 | `-ConcurrentJobs` | 3 | Parallel jobs (Concurrent mode only) |
+| `-RaceMinutes` | 5 | Duration for Race/DeepInsert modes (minutes) |
+| `-CycleMinutes` | 10 | Cycle duration for Endurance mode (minutes) |
+| `-EnduranceMaxMinutes` | 120 | Maximum runtime for Endurance mode (minutes) |
+| `-SprintDurationSeconds` | 60 | Sprint test duration (seconds) |
+| `-SprintThreads` | 10 | Number of parallel threads for Sprint mode |
+| `-UseDeepInsert` | (switch) | Use deep insert API in Endurance mode |
 | `-CustomerNo` | *(auto-detect)* | Customer number to use |
 | `-VendorNo` | *(auto-detect)* | Vendor number to use |
 | `-ItemNo` | *(auto-detect)* | Item number to use |
 | `-ClientSecret` | *(required)* | Entra app client secret |
+| `-ClientId_SO` | `$env:BC_CLIENT_ID_SO` | Sales Order app client ID (Sprint mode) |
+| `-ClientSecret_SO` | `$env:BC_CLIENT_SECRET_SO` | Sales Order app secret (Sprint mode) |
+| `-ClientId_PO` | `$env:BC_CLIENT_ID_PO` | Purchase Order app client ID (Sprint mode) |
+| `-ClientSecret_PO` | `$env:BC_CLIENT_SECRET_PO` | Purchase Order app secret (Sprint mode) |
 
 ## Object ID Range
 
