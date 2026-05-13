@@ -1,3 +1,5 @@
+[![View Reports Site](https://img.shields.io/badge/Reports%20Site-View%20Interactive%20Docs-blue?style=for-the-badge&logo=github)](https://andywingate.github.io/doc-load-test/)
+
 # Document Load Test for Business Central
 
 A Business Central extension and PowerShell test harness for stress testing the BC Cloud SaaS API. Creates Sales Orders and Purchase Orders at scale using multiple strategies — from simple sequential inserts to multi-threaded deep insert sprints and staging table batch processing.
@@ -180,4 +182,4 @@ BC_CLIENT_SECRET_PO=your-po-secret
 
 ## License
 
-Internal use only.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
